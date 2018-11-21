@@ -40,13 +40,13 @@ PS_OUTPUT main(PS_INPUT input)
 
 /*
 // pixel shader input registers
-v#    	Input Register                10	R	Unlimited	4
-c#    	Constant Float Register      224	R	Unlimited	4
-i#    	Constant Integer Register     16	R	        1	4
-b#    	Constant Boolean Register     16	R	        1	1
-s#    	Sampler (Direct3D 9 asm-ps)   16	R	        1	4
+v# Input Register               10 R Unlimited 4
+c# Constant Float Register     224 R Unlimited 4
+i# Constant Integer Register    16 R         1 4
+b# Constant Boolean Register    16 R         1 1
+s# Sampler (Direct3D 9 asm-ps)  16 R         1 4
 
 // pixel shader output registers
-oC#   	Output Color Register          4	W	Unlimited	4 (COLOR0, COLOR1)
-oDepth	Output Depth Register          1	W	Unlimited	1 (DEPTH)
+oC#    Output Color Register     4 W Unlimited 4 (COLOR0, COLOR1)
+oDepth Output Depth Register     1 W Unlimited 1 (DEPTH)
 */

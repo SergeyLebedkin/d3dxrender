@@ -36,12 +36,12 @@ VS_OUTPUT main(VS_INPUT input)
 
 /*
 // vertex shader input registers
-v#    	Input Register                16	R	Unlimited	4
-c#    	Constant Float Register      256	R	Unlimited	4
-i#    	Constant Integer Register     16	R	        1	4
-b#    	Constant Boolean Register     16	R	        1	1
-s#    	Sampler (Direct3D 9 asm-vs)    4	R	        1	4
+v# Input Register               16 R Unlimited 4
+c# Constant Float Register     256 R Unlimited 4
+i# Constant Integer Register    16 R         1 4
+b# Constant Boolean Register    16 R         1 1
+s# Sampler (Direct3D 9 asm-vs)   4 R         1 4
 
 // vertex shader output registers
-o#    	Output Register               12	W	Unlimited	4
+o# Output Register              12 W Unlimited 4
 */

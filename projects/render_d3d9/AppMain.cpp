@@ -18,17 +18,19 @@ uint16_t indexes[] = { 0, 1, 2, 2, 1, 3 };
 // Created SL-160225
 void CAppMain::Init(const HWND hWnd)
 {
+	// get client rect
+	RECT clientWindowRect{ 0 };
+	GetClientRect(hWnd, &clientWindowRect);
+	mViewportWidth = (WORD)clientWindowRect.right - (WORD)clientWindowRect.left;
+	mViewportHeight = (WORD)clientWindowRect.bottom - (WORD)clientWindowRect.top;
+
 	// create Direct3D
 	mD3D9 = Direct3DCreate9(D3D_SDK_VERSION);
 
-	// get client rect
-	RECT clientWindowRect;
-	GetClientRect(hWnd, &clientWindowRect);
-
 	// create present parameters
 	D3DPRESENT_PARAMETERS d3dpp{ 0 };
-	d3dpp.BackBufferWidth = clientWindowRect.right - clientWindowRect.left;
-	d3dpp.BackBufferHeight = clientWindowRect.bottom - clientWindowRect.top;
+	d3dpp.BackBufferWidth = mViewportWidth;
+	d3dpp.BackBufferHeight = mViewportHeight;
 	d3dpp.BackBufferFormat = D3DFMT_A8R8G8B8;
 	d3dpp.BackBufferCount = 1;
 	d3dpp.MultiSampleType = D3DMULTISAMPLE_NONE;

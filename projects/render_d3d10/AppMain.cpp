@@ -13,7 +13,6 @@ CUSTOMVERTEX vertices[] = {
 	{ -1.0f, +1.0f, +0.0f, +1.0, D3DCOLOR_XRGB(255, 255, 0), 0, 1 },
 };
 
-
 // index array
 uint16_t indexes[] = { 0, 1, 2, 2, 1, 3 };
 
@@ -21,14 +20,47 @@ uint16_t indexes[] = { 0, 1, 2, 2, 1, 3 };
 void CAppMain::Init(const HWND hWnd)
 {
 	// get client rect
-	RECT clientWindowRect;
+	RECT clientWindowRect{ 0 };
 	GetClientRect(hWnd, &clientWindowRect);
+	mViewportWidth = (WORD)clientWindowRect.right - (WORD)clientWindowRect.left;
+	mViewportHeight = (WORD)clientWindowRect.bottom - (WORD)clientWindowRect.top;
+
+	// create swap chain description
+	DXGI_SWAP_CHAIN_DESC sd{ 0 };
+	sd.BufferCount = 1;
+	sd.BufferDesc.Width = mViewportWidth;
+	sd.BufferDesc.Height = mViewportHeight;
+	sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	sd.BufferDesc.RefreshRate.Numerator = 60;
+	sd.BufferDesc.RefreshRate.Denominator = 1;
+	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	sd.OutputWindow = hWnd;
+	sd.SampleDesc.Count = 1;
+	sd.SampleDesc.Quality = 0;
+	sd.Windowed = TRUE;
+
+	// create swap chain and device
+	D3D10CreateDevice(NULL, D3D10_DRIVER_TYPE_HARDWARE, NULL, 0, D3D10_SDK_VERSION, &mD3D10Dev);
+
+	// create swap chain factory
+	CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)(&mDXGIFactory));
+
+	// create swap chain
+	mDXGIFactory->CreateSwapChain(mD3D10Dev, &sd, &mDXGISwapChain);
+
+	// create render target view
+	mDXGISwapChain->GetBuffer(0, __uuidof(ID3D10Texture2D), (void**)&mSwapChainBuffer);
+	mD3D10Dev->CreateRenderTargetView(mSwapChainBuffer, NULL, &mRenderTargetView);
 }
 
 // Created SL-160225
 void CAppMain::Destroy()
 {
-
+	mRenderTargetView->Release();
+	mSwapChainBuffer->Release();
+	mD3D10Dev->Release();
+	mDXGISwapChain->Release();
+	mDXGIFactory->Release();
 }
 
 // Created SL-160225
@@ -58,6 +90,26 @@ void CAppMain::Render()
 	// WorldViewProjection
 	D3DXMATRIX WVP;
 	WVP = matWorld * matView * matProj;
+
+	// Setup the viewport
+	D3D10_VIEWPORT vp;
+	vp.TopLeftX = 0;
+	vp.TopLeftY = 0;
+	vp.Width = mViewportHeight;
+	vp.Height = mViewportWidth;
+	vp.MinDepth = 0.0f;
+	vp.MaxDepth = 1.0f;
+	mD3D10Dev->RSSetViewports(1, &vp);
+
+	// Clear the back buffer 
+	float clearColor[4] = { 0.0f, 0.125f, 0.3f, 1.0f };
+	mD3D10Dev->ClearRenderTargetView(mRenderTargetView, clearColor);
+
+	// set render target view
+	mD3D10Dev->OMSetRenderTargets(1, &mRenderTargetView, NULL);
+
+	// Present the information rendered to the back buffer to the front buffer (the screen)
+	mDXGISwapChain->Present(0, 0);
 }
 
 // Created SL-160225

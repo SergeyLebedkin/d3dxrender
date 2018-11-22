@@ -1,5 +1,5 @@
 #include "AppMain.hpp"
-#include <cinttypes>
+#include <iostream>
 #include <d3d9types.h>
 
 // vertex structure
@@ -38,74 +38,109 @@ void CAppMain::Init(const HWND hWnd)
 	sd.SampleDesc.Count = 1;
 	sd.SampleDesc.Quality = 0;
 	sd.Windowed = TRUE;
-
-	// create swap chain and device
 	D3D10CreateDeviceAndSwapChain(NULL, D3D10_DRIVER_TYPE_HARDWARE, NULL, 0, D3D10_SDK_VERSION, &sd, &mDXGISwapChain, &mD3D10Dev);
 
 	// get mWindowRenderTargetTexture2D and create mWindowRenderTargetView
 	mDXGISwapChain->GetBuffer(0, __uuidof(ID3D10Texture2D), (void**)&mWindowRenderTargetTexture2D);
 	mD3D10Dev->CreateRenderTargetView(mWindowRenderTargetTexture2D, NULL, &mWindowRenderTargetView);
-	D3D10_TEXTURE2D_DESC windowRenderTargetTexture2DDesc;
-	mWindowRenderTargetTexture2D->GetDesc(&windowRenderTargetTexture2DDesc);
+	D3D10_TEXTURE2D_DESC descRTT;
+	mWindowRenderTargetTexture2D->GetDesc(&descRTT);
+
+	//////////////////////////////////////////////////////////////////////////
+	// create Window Depth Stencil Texture2D and Window Depth Stencil View
+	//////////////////////////////////////////////////////////////////////////
 
 	// create Window Depth Stencil Texture2D
-	D3D10_TEXTURE2D_DESC windowDepthStencilTexture2DDesc{ 0 };
-	windowDepthStencilTexture2DDesc.Width = windowRenderTargetTexture2DDesc.Width;
-	windowDepthStencilTexture2DDesc.Height = windowRenderTargetTexture2DDesc.Height;
-	windowDepthStencilTexture2DDesc.MipLevels = windowRenderTargetTexture2DDesc.MipLevels;
-	windowDepthStencilTexture2DDesc.ArraySize = windowRenderTargetTexture2DDesc.ArraySize;
-	windowDepthStencilTexture2DDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	windowDepthStencilTexture2DDesc.SampleDesc.Count = 1;
-	windowDepthStencilTexture2DDesc.SampleDesc.Quality = 0;
-	windowDepthStencilTexture2DDesc.Usage = D3D10_USAGE_DEFAULT;
-	windowDepthStencilTexture2DDesc.BindFlags = D3D10_BIND_DEPTH_STENCIL;
-	windowDepthStencilTexture2DDesc.CPUAccessFlags = 0;
-	windowDepthStencilTexture2DDesc.MiscFlags = 0;
-	mD3D10Dev->CreateTexture2D(&windowDepthStencilTexture2DDesc, nullptr, &mWindowDepthStencilTexture2D);
-	mWindowDepthStencilTexture2D->GetDesc(&windowDepthStencilTexture2DDesc);
+	D3D10_TEXTURE2D_DESC descDST{ 0 };
+	descDST.Width = descRTT.Width;
+	descDST.Height = descRTT.Height;
+	descDST.MipLevels = descRTT.MipLevels;
+	descDST.ArraySize = descRTT.ArraySize;
+	descDST.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	descDST.SampleDesc.Count = 1;
+	descDST.SampleDesc.Quality = 0;
+	descDST.Usage = D3D10_USAGE_DEFAULT;
+	descDST.BindFlags = D3D10_BIND_DEPTH_STENCIL;
+	descDST.CPUAccessFlags = 0;
+	descDST.MiscFlags = 0;
+	mD3D10Dev->CreateTexture2D(&descDST, nullptr, &mWindowDepthStencilTexture2D);
 
 	// create Window Depth Stencil View
-	D3D10_DEPTH_STENCIL_VIEW_DESC windowDepthStencilViewDesc;
-	windowDepthStencilViewDesc.Format = windowDepthStencilTexture2DDesc.Format;
-	windowDepthStencilViewDesc.ViewDimension = D3D10_DSV_DIMENSION_TEXTURE2D;
-	windowDepthStencilViewDesc.Texture2D.MipSlice = 0;
-	mD3D10Dev->CreateDepthStencilView(mWindowDepthStencilTexture2D, &windowDepthStencilViewDesc, &mWindowDepthStencilView);
+	D3D10_DEPTH_STENCIL_VIEW_DESC descDSV;
+	descDSV.Format = descDST.Format;
+	descDSV.ViewDimension = D3D10_DSV_DIMENSION_TEXTURE2D;
+	descDSV.Texture2D.MipSlice = 0;
+	mD3D10Dev->CreateDepthStencilView(mWindowDepthStencilTexture2D, &descDSV, &mWindowDepthStencilView);
 
 	//////////////////////////////////////////////////////////////////////////
-	// create Texture2D
+	// create Texture2D and Texture2DShaderResourceView
 	//////////////////////////////////////////////////////////////////////////
 
 	// create Texture2D
-	D3D10_TEXTURE2D_DESC pTexture2DDesc{ 0 };
-	pTexture2DDesc.Width = 256;
-	pTexture2DDesc.Height = 256;
-	pTexture2DDesc.MipLevels = 0;
-	pTexture2DDesc.ArraySize = 1;
-	pTexture2DDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	pTexture2DDesc.SampleDesc.Count = 1;
-	pTexture2DDesc.SampleDesc.Quality = 0;
-	pTexture2DDesc.Usage = D3D10_USAGE_DEFAULT;
-	pTexture2DDesc.BindFlags = D3D10_BIND_SHADER_RESOURCE;
-	pTexture2DDesc.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
-	ID3D10Texture2D *ppTexture2D = nullptr;
-	mD3D10Dev->CreateTexture2D(&pTexture2DDesc, nullptr, &ppTexture2D);
-	ppTexture2D->GetDesc(&pTexture2DDesc);
+	D3D10_TEXTURE2D_DESC descTex2D{ 0 };
+	descTex2D.Width = 256;
+	descTex2D.Height = 256;
+	descTex2D.MipLevels = 0;
+	descTex2D.ArraySize = 1;
+	descTex2D.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	descTex2D.SampleDesc.Count = 1;
+	descTex2D.SampleDesc.Quality = 0;
+	descTex2D.Usage = D3D10_USAGE_DEFAULT;
+	descTex2D.BindFlags = D3D10_BIND_SHADER_RESOURCE;
+	descTex2D.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
+	descTex2D.MiscFlags = 0;
+	mD3D10Dev->CreateTexture2D(&descTex2D, nullptr, &mTexture2D);
+	mTexture2D->GetDesc(&descTex2D);
 
 	// create ShaderResourceView for Texture2D
-	D3D10_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc;
-	shaderResourceViewDesc.Format = pTexture2DDesc.Format;
-	shaderResourceViewDesc.ViewDimension = D3D_SRV_DIMENSION_TEXTURE2D;
-	shaderResourceViewDesc.Texture2D.MipLevels = pTexture2DDesc.MipLevels;
-	shaderResourceViewDesc.Texture2D.MostDetailedMip = 0;
-	ID3D10ShaderResourceView *ppSRView = nullptr;
-	mD3D10Dev->CreateShaderResourceView(ppTexture2D, &shaderResourceViewDesc, &ppSRView);
-	mD3D10Dev->GenerateMips(ppSRView);
+	D3D10_SHADER_RESOURCE_VIEW_DESC descSRV;
+	descSRV.Format = descTex2D.Format;
+	descSRV.ViewDimension = D3D_SRV_DIMENSION_TEXTURE2D;
+	descSRV.Texture2D.MipLevels = descTex2D.MipLevels;
+	descSRV.Texture2D.MostDetailedMip = 0;
+	mD3D10Dev->CreateShaderResourceView(mTexture2D, &descSRV, &mTexture2DShaderResourceView);
+
+	//////////////////////////////////////////////////////////////////////////
+	// create Vertex Buffer
+	//////////////////////////////////////////////////////////////////////////
+
+	D3D10_BUFFER_DESC descVertexBuffer{ 0 };
+	descVertexBuffer.ByteWidth = sizeof(vertices);
+	descVertexBuffer.Usage = D3D10_USAGE_DYNAMIC;
+	descVertexBuffer.BindFlags = D3D10_BIND_VERTEX_BUFFER;
+	descVertexBuffer.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
+	descVertexBuffer.MiscFlags = 0;
+	D3D10_SUBRESOURCE_DATA srdVertexBuffer;
+	srdVertexBuffer.pSysMem = vertices;
+	srdVertexBuffer.SysMemPitch = 0;
+	srdVertexBuffer.SysMemSlicePitch = 0;
+	mD3D10Dev->CreateBuffer(&descVertexBuffer, &srdVertexBuffer, &mVertexBuffer);
+
+	//////////////////////////////////////////////////////////////////////////
+	// create Index Buffer
+	//////////////////////////////////////////////////////////////////////////
+
+	D3D10_BUFFER_DESC descIndexBuffer{ 0 };
+	descIndexBuffer.ByteWidth = sizeof(indexes);
+	descIndexBuffer.Usage = D3D10_USAGE_DYNAMIC;
+	descIndexBuffer.BindFlags = D3D10_BIND_INDEX_BUFFER;
+	descIndexBuffer.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
+	descIndexBuffer.MiscFlags = 0;
+	D3D10_SUBRESOURCE_DATA srdIndexData;
+	srdIndexData.pSysMem = indexes;
+	srdIndexData.SysMemPitch = 0;
+	srdIndexData.SysMemSlicePitch = 0;
+	mD3D10Dev->CreateBuffer(&descIndexBuffer, &srdIndexData, &mIndexBuffer);
 }
 
 // Created SL-160225
 void CAppMain::Destroy()
 {
 	// window render targets
+	mIndexBuffer->Release();
+	mVertexBuffer->Release();
+	mTexture2DShaderResourceView->Release();
+	mTexture2D->Release();
 	mWindowDepthStencilView->Release();
 	mWindowDepthStencilTexture2D->Release();
 	mWindowRenderTargetView->Release();

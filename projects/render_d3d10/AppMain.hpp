@@ -27,6 +27,10 @@ private:
 	ID3D10DepthStencilView* mWindowDepthStencilView = nullptr;
 
 	// D3D10 scene handles
+	ID3D10Texture2D*          mTexture2D = nullptr;
+	ID3D10ShaderResourceView* mTexture2DShaderResourceView = nullptr;
+	ID3D10Buffer*             mVertexBuffer = nullptr;
+	ID3D10Buffer*             mIndexBuffer = nullptr;
 public:
 	CAppMain() {};
 	virtual ~CAppMain() {};

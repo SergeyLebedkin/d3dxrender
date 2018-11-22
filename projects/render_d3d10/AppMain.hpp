@@ -15,13 +15,18 @@ private:
 	WORD mViewportHeight = 0;
 
 	// DXGI handlers
-	IDXGIFactory*           mDXGIFactory = nullptr;
 	IDXGISwapChain*         mDXGISwapChain = nullptr;
 
 	// D3D10 handlers
 	ID3D10Device*           mD3D10Dev = nullptr;
-	ID3D10Texture2D*        mSwapChainBuffer = nullptr;
-	ID3D10RenderTargetView* mRenderTargetView = nullptr;
+
+	// window render targets
+	ID3D10Texture2D*        mWindowRenderTargetTexture2D = nullptr;
+	ID3D10RenderTargetView* mWindowRenderTargetView = nullptr;
+	ID3D10Texture2D*        mWindowDepthStencilTexture2D = nullptr;
+	ID3D10DepthStencilView* mWindowDepthStencilView = nullptr;
+
+	// D3D10 scene handles
 public:
 	CAppMain() {};
 	virtual ~CAppMain() {};

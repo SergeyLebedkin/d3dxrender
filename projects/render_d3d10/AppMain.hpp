@@ -29,8 +29,14 @@ private:
 	// D3D10 scene handles
 	ID3D10Texture2D*          mTexture2D = nullptr;
 	ID3D10ShaderResourceView* mTexture2DShaderResourceView = nullptr;
+	ID3D10RenderTargetView*   mTexture2DRenderTargetView = nullptr;
 	ID3D10Buffer*             mVertexBuffer = nullptr;
 	ID3D10Buffer*             mIndexBuffer = nullptr;
+	ID3D10Buffer*             mConstantBuffer = nullptr;
+	ID3D10VertexShader*       mVertexShader = nullptr;
+	ID3D10PixelShader*        mPixelShader = nullptr;
+	ID3D10InputLayout*        mInputLayout = nullptr;
+	ID3D10RasterizerState*    mRasterizerState = nullptr;
 public:
 	CAppMain() {};
 	virtual ~CAppMain() {};

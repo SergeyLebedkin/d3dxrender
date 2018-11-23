@@ -1,5 +1,7 @@
 #include "AppMain.hpp"
 #include <iostream>
+#include <fstream>
+#include <string>
 #include <d3d9types.h>
 
 // vertex structure
@@ -7,10 +9,10 @@ struct CUSTOMVERTEX { FLOAT X, Y, Z, W; DWORD COLOR; FLOAT U, V; };
 
 // vertex array
 CUSTOMVERTEX vertices[] = {
-	{ +1.0f, -1.0f, +0.0f, +1.0, D3DCOLOR_XRGB(0, 0, 255),   1, 0 },
-	{ +1.0f, +1.0f, +0.0f, +1.0, D3DCOLOR_XRGB(0, 255, 0),   1, 1 },
-	{ -1.0f, -1.0f, +0.0f, +1.0, D3DCOLOR_XRGB(255, 0, 0),   0, 0 },
-	{ -1.0f, +1.0f, +0.0f, +1.0, D3DCOLOR_XRGB(255, 255, 0), 0, 1 },
+	{ +1.0f, -1.0f, +0.0f, +1.0, D3DCOLOR_ARGB(255,   0,   0, 255), 1, 0 },
+	{ +1.0f, +1.0f, +0.0f, +1.0, D3DCOLOR_ARGB(255,   0, 255,   0), 1, 1 },
+	{ -1.0f, -1.0f, +0.0f, +1.0, D3DCOLOR_ARGB(255, 255,   0,   0), 0, 0 },
+	{ -1.0f, +1.0f, +0.0f, +1.0, D3DCOLOR_ARGB(255, 255, 255, 255), 0, 1 },
 };
 
 // index array
@@ -86,7 +88,7 @@ void CAppMain::Init(const HWND hWnd)
 	descTex2D.SampleDesc.Count = 1;
 	descTex2D.SampleDesc.Quality = 0;
 	descTex2D.Usage = D3D10_USAGE_DEFAULT;
-	descTex2D.BindFlags = D3D10_BIND_SHADER_RESOURCE;
+	descTex2D.BindFlags = D3D10_BIND_SHADER_RESOURCE | D3D10_BIND_RENDER_TARGET;
 	descTex2D.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
 	descTex2D.MiscFlags = 0;
 	mD3D10Dev->CreateTexture2D(&descTex2D, nullptr, &mTexture2D);
@@ -99,6 +101,13 @@ void CAppMain::Init(const HWND hWnd)
 	descSRV.Texture2D.MipLevels = descTex2D.MipLevels;
 	descSRV.Texture2D.MostDetailedMip = 0;
 	mD3D10Dev->CreateShaderResourceView(mTexture2D, &descSRV, &mTexture2DShaderResourceView);
+
+	// create RenderTargetView for Texture2D
+	D3D10_RENDER_TARGET_VIEW_DESC descRTV;
+	descRTV.Format = descTex2D.Format;
+	descRTV.ViewDimension = D3D10_RTV_DIMENSION_TEXTURE2D;
+	descRTV.Texture2D.MipSlice = 0;
+	mD3D10Dev->CreateRenderTargetView(mTexture2D, &descRTV, &mTexture2DRenderTargetView);
 
 	//////////////////////////////////////////////////////////////////////////
 	// create Vertex Buffer
@@ -126,19 +135,92 @@ void CAppMain::Init(const HWND hWnd)
 	descIndexBuffer.BindFlags = D3D10_BIND_INDEX_BUFFER;
 	descIndexBuffer.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
 	descIndexBuffer.MiscFlags = 0;
-	D3D10_SUBRESOURCE_DATA srdIndexData;
-	srdIndexData.pSysMem = indexes;
-	srdIndexData.SysMemPitch = 0;
-	srdIndexData.SysMemSlicePitch = 0;
-	mD3D10Dev->CreateBuffer(&descIndexBuffer, &srdIndexData, &mIndexBuffer);
+	D3D10_SUBRESOURCE_DATA srdIndexBuffer;
+	srdIndexBuffer.pSysMem = indexes;
+	srdIndexBuffer.SysMemPitch = 0;
+	srdIndexBuffer.SysMemSlicePitch = 0;
+	mD3D10Dev->CreateBuffer(&descIndexBuffer, &srdIndexBuffer, &mIndexBuffer);
+
+	//////////////////////////////////////////////////////////////////////////
+	// create Constant Buffer
+	//////////////////////////////////////////////////////////////////////////
+
+	D3D10_BUFFER_DESC descConstantBuffer{ 0 };
+	descConstantBuffer.ByteWidth = sizeof(vertices);
+	descConstantBuffer.Usage = D3D10_USAGE_DYNAMIC;
+	descConstantBuffer.BindFlags = D3D10_BIND_CONSTANT_BUFFER;
+	descConstantBuffer.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
+	descConstantBuffer.MiscFlags = 0;
+	D3D10_SUBRESOURCE_DATA srdConstantBuffer;
+	srdConstantBuffer.pSysMem = vertices;
+	srdConstantBuffer.SysMemPitch = 0;
+	srdConstantBuffer.SysMemSlicePitch = 0;
+	mD3D10Dev->CreateBuffer(&descConstantBuffer, &srdConstantBuffer, &mConstantBuffer);
+
+	//////////////////////////////////////////////////////////////////////////
+	// create Vertex Shader
+	//////////////////////////////////////////////////////////////////////////
+
+	ID3D10Blob *pVertexShaderBlob = nullptr;
+	ID3D10Blob *pVertexShaderErrorBlob = nullptr;
+	if (FAILED(D3DX10CompileFromFile(L"shaders/vs.hlsl", NULL, NULL, "main", "vs_4_0", 0, 0, NULL, &pVertexShaderBlob, &pVertexShaderErrorBlob, NULL))) throw 1;
+	mD3D10Dev->CreateVertexShader(pVertexShaderBlob->GetBufferPointer(), pVertexShaderBlob->GetBufferSize(), &mVertexShader);
+
+	//////////////////////////////////////////////////////////////////////////
+	// create Pixel Shader
+	//////////////////////////////////////////////////////////////////////////
+
+	ID3D10Blob *pPixelShaderBlob = nullptr;
+	ID3D10Blob *pPixelShaderErrorBlob = nullptr;
+	if (FAILED(D3DX10CompileFromFile(L"shaders/ps.hlsl", NULL, NULL, "main", "ps_4_0", 0, 0, NULL, &pPixelShaderBlob, &pPixelShaderErrorBlob, NULL))) throw 2;
+	mD3D10Dev->CreatePixelShader(pPixelShaderBlob->GetBufferPointer(), pPixelShaderBlob->GetBufferSize(), &mPixelShader);
+	if (pPixelShaderErrorBlob) pPixelShaderErrorBlob->Release();
+	if (pPixelShaderBlob) pPixelShaderBlob->Release();
+
+	//////////////////////////////////////////////////////////////////////////
+	// create Input Layout
+	//////////////////////////////////////////////////////////////////////////
+
+	D3D10_INPUT_ELEMENT_DESC layout[] =
+	{
+		{ "POSITION",  0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0,  0, D3D10_INPUT_PER_VERTEX_DATA, 0 },
+		{ "COLOR",     0, DXGI_FORMAT_R8G8B8A8_UINT     , 0, 16, D3D10_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD",  0, DXGI_FORMAT_R32G32_FLOAT      , 0, 20, D3D10_INPUT_PER_VERTEX_DATA, 0 },
+	};
+	mD3D10Dev->CreateInputLayout(layout, sizeof(layout)/sizeof(layout[0]), pVertexShaderBlob->GetBufferPointer(), pVertexShaderBlob->GetBufferSize(), &mInputLayout);
+	if (pVertexShaderErrorBlob) pVertexShaderErrorBlob->Release();
+	if (pVertexShaderBlob) pVertexShaderBlob->Release();
+
+	//////////////////////////////////////////////////////////////////////////
+	// create Rasterizer State
+	//////////////////////////////////////////////////////////////////////////
+
+	D3D10_RASTERIZER_DESC descRasterizer;
+	descRasterizer.CullMode = D3D10_CULL_NONE;
+	descRasterizer.FillMode = D3D10_FILL_SOLID;
+	descRasterizer.FrontCounterClockwise = true;
+	descRasterizer.DepthBias = false;
+	descRasterizer.DepthBiasClamp = 0;
+	descRasterizer.SlopeScaledDepthBias = 0;
+	descRasterizer.DepthClipEnable = true;
+	descRasterizer.ScissorEnable = false;
+	descRasterizer.MultisampleEnable = false;
+	descRasterizer.AntialiasedLineEnable = true;
+	mD3D10Dev->CreateRasterizerState(&descRasterizer, &mRasterizerState);
 }
 
 // Created SL-160225
 void CAppMain::Destroy()
 {
 	// window render targets
+	mRasterizerState->Release();
+	mInputLayout->Release();
+	mPixelShader->Release();
+	mVertexShader->Release();
+	mConstantBuffer->Release();
 	mIndexBuffer->Release();
 	mVertexBuffer->Release();
+	mWindowDepthStencilView->Release();
 	mTexture2DShaderResourceView->Release();
 	mTexture2D->Release();
 	mWindowDepthStencilView->Release();
@@ -160,7 +242,9 @@ void CAppMain::Render()
 	D3DXMATRIX matRotate;
 	D3DXMATRIX matScale;
 	D3DXMATRIX matTranslate;
-	D3DXMatrixRotationZ(&matRotate, 0.0f);
+	static float rotate = 0.0f;
+	static float Move = 0.0f;
+	D3DXMatrixRotationZ(&matRotate, rotate += 0.0005f);
 	D3DXMatrixScaling(&matScale, 1.0f, 1.0f, 1.0f);
 	D3DXMatrixTranslation(&matTranslate, 0.0f, 0.0f, 0.0f);
 	D3DXMATRIX matWorld = matRotate * matScale * matTranslate;
@@ -168,7 +252,7 @@ void CAppMain::Render()
 	// mat view
 	D3DXMATRIX matView;
 	D3DXMatrixLookAtRH(&matView,
-		&D3DXVECTOR3(0.0f, 0.0f, 10.0f), // the camera position
+		&D3DXVECTOR3(10.0f, 0.0f, 10.0f), // the camera position
 		&D3DXVECTOR3(0.0f, 0.0f, 0.0f),  // the look-at position
 		&D3DXVECTOR3(0.0f, 1.0f, 0.0f)   // the up direction
 	);
@@ -196,8 +280,51 @@ void CAppMain::Render()
 	mD3D10Dev->ClearRenderTargetView(mWindowRenderTargetView, clearColor);
 	mD3D10Dev->ClearDepthStencilView(mWindowDepthStencilView, D3D10_CLEAR_DEPTH | D3D10_CLEAR_STENCIL, 1.0f, 0);
 
+	// Input-Assembler Stage
+	UINT stride = sizeof(CUSTOMVERTEX);
+	UINT offset = 0;
+	mD3D10Dev->IASetInputLayout(mInputLayout);
+	mD3D10Dev->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	mD3D10Dev->IASetVertexBuffers(0, 1, &mVertexBuffer, &stride, &offset);
+	mD3D10Dev->IASetIndexBuffer(mIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
+
+	// Vertex-Shader Stage
+	void * pData = nullptr;
+	mConstantBuffer->Map(D3D10_MAP_WRITE_DISCARD, 0, &pData);
+	memcpy(pData, WVP, sizeof(WVP));
+	mConstantBuffer->Unmap();
+	mD3D10Dev->VSSetConstantBuffers(0, 1, &mConstantBuffer);
+	mD3D10Dev->VSSetSamplers(0, 0, NULL);
+	mD3D10Dev->VSSetShader(mVertexShader);
+	mD3D10Dev->VSSetShaderResources(0, 0, NULL);
+
+	// Geometry-Shader Stage
+	mD3D10Dev->GSSetConstantBuffers(0, 0, NULL);
+	mD3D10Dev->GSSetSamplers(0, 0, NULL);
+	mD3D10Dev->GSSetShader(NULL);
+	mD3D10Dev->GSSetShaderResources(0, 0, NULL);
+
+	// Stream-Output Stage
+	mD3D10Dev->SOSetTargets(0, NULL, NULL);
+
+	// Rasterizer Stage
+	mD3D10Dev->RSSetScissorRects(0, NULL);
+	mD3D10Dev->RSSetState(mRasterizerState);
+	mD3D10Dev->RSSetViewports(1, &vp);
+
+	// Geometry-Shader Stage
+	mD3D10Dev->PSSetConstantBuffers(0, 0, NULL);
+	mD3D10Dev->PSSetSamplers(0, 0, NULL);
+	mD3D10Dev->PSSetShader(mPixelShader);
+	mD3D10Dev->PSSetShaderResources(0, 0, NULL);
+
 	// set render target view
+	//mD3D10Dev->OMSetBlendState();
+	//mD3D10Dev->OMSetDepthStencilState();
 	mD3D10Dev->OMSetRenderTargets(1, &mWindowRenderTargetView, mWindowDepthStencilView);
+
+	// DRAW !!!!!
+	mD3D10Dev->DrawIndexed(6, 0, 0);
 
 	// Present the information rendered to the back buffer to the front buffer (the screen)
 	mDXGISwapChain->Present(0, 0);

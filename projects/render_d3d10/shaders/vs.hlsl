@@ -28,7 +28,7 @@ VS_OUTPUT main(VS_INPUT input)
     
     // setup output
     output.vPosition = mul(uWVP, input.aPosition);
-    output.vColor0 = input.aTexCoord0;
+    output.vColor0 = input.aColor;
     output.vTexCoord0 = input.aTexCoord0;
 
     // return

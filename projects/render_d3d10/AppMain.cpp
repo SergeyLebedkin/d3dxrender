@@ -9,10 +9,10 @@ struct CUSTOMVERTEX { FLOAT X, Y, Z, W; DWORD COLOR; FLOAT U, V; };
 
 // vertex array
 CUSTOMVERTEX vertices[] = {
-	{ +1.0f, -1.0f, +0.0f, +1.0, D3DCOLOR_ARGB(255,   0,   0, 255), 1, 0 },
-	{ +1.0f, +1.0f, +0.0f, +1.0, D3DCOLOR_ARGB(255,   0, 255,   0), 1, 1 },
-	{ -1.0f, -1.0f, +0.0f, +1.0, D3DCOLOR_ARGB(255, 255,   0,   0), 0, 0 },
-	{ -1.0f, +1.0f, +0.0f, +1.0, D3DCOLOR_ARGB(255, 255, 255, 255), 0, 1 },
+	{ +1.0f, -1.0f, +0.0f, +1.0, D3DCOLOR_RGBA(255,   0,   0, 255), 1, 0 },
+	{ +1.0f, +1.0f, +0.0f, +1.0, D3DCOLOR_RGBA(255,   0, 255,   0), 1, 1 },
+	{ -1.0f, -1.0f, +0.0f, +1.0, D3DCOLOR_RGBA(255, 255,   0,   0), 0, 0 },
+	{ -1.0f, +1.0f, +0.0f, +1.0, D3DCOLOR_RGBA(255, 255, 255, 255), 0, 1 },
 };
 
 // index array
@@ -146,16 +146,16 @@ void CAppMain::Init(const HWND hWnd)
 	//////////////////////////////////////////////////////////////////////////
 
 	D3D10_BUFFER_DESC descConstantBuffer{ 0 };
-	descConstantBuffer.ByteWidth = sizeof(vertices);
+	descConstantBuffer.ByteWidth = sizeof(D3DXMATRIX);
 	descConstantBuffer.Usage = D3D10_USAGE_DYNAMIC;
 	descConstantBuffer.BindFlags = D3D10_BIND_CONSTANT_BUFFER;
 	descConstantBuffer.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
 	descConstantBuffer.MiscFlags = 0;
 	D3D10_SUBRESOURCE_DATA srdConstantBuffer;
-	srdConstantBuffer.pSysMem = vertices;
+	srdConstantBuffer.pSysMem = NULL;
 	srdConstantBuffer.SysMemPitch = 0;
 	srdConstantBuffer.SysMemSlicePitch = 0;
-	mD3D10Dev->CreateBuffer(&descConstantBuffer, &srdConstantBuffer, &mConstantBuffer);
+	mD3D10Dev->CreateBuffer(&descConstantBuffer, NULL, &mConstantBuffer);
 
 	//////////////////////////////////////////////////////////////////////////
 	// create Vertex Shader
@@ -242,9 +242,7 @@ void CAppMain::Render()
 	D3DXMATRIX matRotate;
 	D3DXMATRIX matScale;
 	D3DXMATRIX matTranslate;
-	static float rotate = 0.0f;
-	static float Move = 0.0f;
-	D3DXMatrixRotationZ(&matRotate, rotate += 0.0005f);
+	D3DXMatrixRotationZ(&matRotate, 0.0f);
 	D3DXMatrixScaling(&matScale, 1.0f, 1.0f, 1.0f);
 	D3DXMatrixTranslation(&matTranslate, 0.0f, 0.0f, 0.0f);
 	D3DXMATRIX matWorld = matRotate * matScale * matTranslate;
@@ -252,14 +250,14 @@ void CAppMain::Render()
 	// mat view
 	D3DXMATRIX matView;
 	D3DXMatrixLookAtRH(&matView,
-		&D3DXVECTOR3(10.0f, 0.0f, 10.0f), // the camera position
+		&D3DXVECTOR3(0.0f, 0.0f, 10.0f), // the camera position
 		&D3DXVECTOR3(0.0f, 0.0f, 0.0f),  // the look-at position
 		&D3DXVECTOR3(0.0f, 1.0f, 0.0f)   // the up direction
 	);
 
 	// mat projection
 	D3DXMATRIX matProj;
-	D3DXMatrixPerspectiveFovRH(&matProj, (FLOAT)D3DXToRadian(45.0f), (FLOAT)mViewportWidth / mViewportHeight, 1.0f, 1000.0f);
+	D3DXMatrixPerspectiveFovRH(&matProj, D3DXToRadian(45), (FLOAT)mViewportWidth / mViewportHeight, 1.0f, 1000.0f);
 
 	// WorldViewProjection
 	D3DXMATRIX WVP;
@@ -269,8 +267,8 @@ void CAppMain::Render()
 	D3D10_VIEWPORT vp;
 	vp.TopLeftX = 0;
 	vp.TopLeftY = 0;
-	vp.Width = mViewportHeight;
-	vp.Height = mViewportWidth;
+	vp.Width = mViewportWidth;
+	vp.Height = mViewportHeight;
 	vp.MinDepth = 0.0f;
 	vp.MaxDepth = 1.0f;
 	mD3D10Dev->RSSetViewports(1, &vp);

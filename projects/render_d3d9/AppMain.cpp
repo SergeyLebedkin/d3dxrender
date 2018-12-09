@@ -2,14 +2,14 @@
 #include <cinttypes>
 
 // vertex structure
-struct CUSTOMVERTEX { FLOAT X, Y, Z, W; DWORD COLOR; FLOAT U, V; };
+struct CUSTOMVERTEX { FLOAT X, Y, Z, W; FLOAT R, G, B, A; FLOAT U, V; };
 
 // vertex array
 CUSTOMVERTEX vertices[] = {
-	{ +1.0f, -1.0f, +0.0f, +1.0, D3DCOLOR_XRGB(0, 0, 255),   1, 0 },
-	{ +1.0f, +1.0f, +0.0f, +1.0, D3DCOLOR_XRGB(0, 255, 0),   1, 1 },
-	{ -1.0f, -1.0f, +0.0f, +1.0, D3DCOLOR_XRGB(255, 0, 0),   0, 0 },
-	{ -1.0f, +1.0f, +0.0f, +1.0, D3DCOLOR_XRGB(255, 255, 0), 0, 1 },
+	{ +1.0f, -1.0f, +0.0f, +1.0, /**/+1.0f, +1.0f, +0.0f, +1.0, /**/+1, +0 },
+{ +1.0f, +1.0f, +0.0f, +1.0, /**/+1.0f, +1.0f, +0.0f, +1.0, /**/+1, +1 },
+{ -1.0f, -1.0f, +0.0f, +1.0, /**/+1.0f, +0.0f, +0.0f, +1.0, /**/+0, +0 },
+{ -1.0f, +1.0f, +0.0f, +1.0, /**/+1.0f, +1.0f, +0.0f, +1.0, /**/+0, +1 },
 };
 
 // index array
@@ -92,9 +92,9 @@ void CAppMain::Init(const HWND hWnd)
 	// declaration
 	D3DVERTEXELEMENT9 declaration[] =
 	{
-		{ 0,  0, D3DDECLTYPE_FLOAT4,   D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
-		{ 0, 16, D3DDECLTYPE_D3DCOLOR, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR,    0 },
-		{ 0, 20, D3DDECLTYPE_FLOAT2,   D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
+		{ 0,  0, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
+		{ 0, 16, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR,    0 },
+		{ 0, 32, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
 		D3DDECL_END()
 	};
 	mD3D9Dev->CreateVertexDeclaration(declaration, &mVertexDeclaration);

@@ -5,14 +5,14 @@
 #include <d3d9types.h>
 
 // vertex structure
-struct CUSTOMVERTEX { FLOAT X, Y, Z, W; DWORD COLOR; FLOAT U, V; };
+struct CUSTOMVERTEX { FLOAT X, Y, Z, W; FLOAT R, G, B, A; FLOAT U, V; };
 
 // vertex array
 CUSTOMVERTEX vertices[] = {
-	{ +1.0f, -1.0f, +0.0f, +1.0, D3DCOLOR_RGBA(255,   0,   0, 255), 1, 0 },
-	{ +1.0f, +1.0f, +0.0f, +1.0, D3DCOLOR_RGBA(255,   0, 255,   0), 1, 1 },
-	{ -1.0f, -1.0f, +0.0f, +1.0, D3DCOLOR_RGBA(255, 255,   0,   0), 0, 0 },
-	{ -1.0f, +1.0f, +0.0f, +1.0, D3DCOLOR_RGBA(255, 255, 255, 255), 0, 1 },
+	{ +1.0f, -1.0f, +0.0f, +1.0, /**/+1.0f, +1.0f, +0.0f, +1.0, /**/+1, +0 },
+	{ +1.0f, +1.0f, +0.0f, +1.0, /**/+1.0f, +1.0f, +0.0f, +1.0, /**/+1, +1 },
+	{ -1.0f, -1.0f, +0.0f, +1.0, /**/+1.0f, +0.0f, +0.0f, +1.0, /**/+0, +0 },
+	{ -1.0f, +1.0f, +0.0f, +1.0, /**/+1.0f, +1.0f, +0.0f, +1.0, /**/+0, +1 },
 };
 
 // index array
@@ -39,7 +39,7 @@ void CAppMain::Init(const HWND hWnd)
 	sd.OutputWindow = hWnd;
 	sd.SampleDesc.Count = 1;
 	sd.SampleDesc.Quality = 0;
-	sd.Windowed = TRUE;
+	sd.Windowed = true;
 	D3D10CreateDeviceAndSwapChain(NULL, D3D10_DRIVER_TYPE_HARDWARE, NULL, 0, D3D10_SDK_VERSION, &sd, &mDXGISwapChain, &mD3D10Dev);
 
 	// get mWindowRenderTargetTexture2D and create mWindowRenderTargetView
@@ -184,8 +184,8 @@ void CAppMain::Init(const HWND hWnd)
 	D3D10_INPUT_ELEMENT_DESC layout[] =
 	{
 		{ "POSITION",  0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0,  0, D3D10_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR",     0, DXGI_FORMAT_R8G8B8A8_UINT     , 0, 16, D3D10_INPUT_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD",  0, DXGI_FORMAT_R32G32_FLOAT      , 0, 20, D3D10_INPUT_PER_VERTEX_DATA, 0 },
+		{ "COLOR",     0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 16, D3D10_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD",  0, DXGI_FORMAT_R32G32_FLOAT      , 0, 32, D3D10_INPUT_PER_VERTEX_DATA, 0 },
 	};
 	mD3D10Dev->CreateInputLayout(layout, sizeof(layout)/sizeof(layout[0]), pVertexShaderBlob->GetBufferPointer(), pVertexShaderBlob->GetBufferSize(), &mInputLayout);
 	if (pVertexShaderErrorBlob) pVertexShaderErrorBlob->Release();

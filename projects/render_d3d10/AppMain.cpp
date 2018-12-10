@@ -110,6 +110,44 @@ void CAppMain::Init(const HWND hWnd)
 	mD3D10Dev->CreateRenderTargetView(mTexture2D, &descRTV, &mTexture2DRenderTargetView);
 
 	//////////////////////////////////////////////////////////////////////////
+	// create Texture2D and Texture2DShaderResourceView from file
+	//////////////////////////////////////////////////////////////////////////
+
+	// load texture from file
+	ID3D10Resource* pD3D10Resource = NULL;
+	HRESULT hr = D3DX10CreateTextureFromFile(mD3D10Dev, L"textures/texture.png", NULL, NULL, &pD3D10Resource, NULL);
+	pD3D10Resource->QueryInterface(__uuidof(ID3D10Texture2D), (LPVOID*)&mTexture2DFromFile);
+	mTexture2DFromFile->GetDesc(&descTex2D);
+	pD3D10Resource->Release();
+
+	// create Shader Resource View
+	descSRV.Format = descTex2D.Format;
+	descSRV.ViewDimension = D3D_SRV_DIMENSION_TEXTURE2D;
+	descSRV.Texture2D.MipLevels = descTex2D.MipLevels;
+	descSRV.Texture2D.MostDetailedMip = 0;
+	mD3D10Dev->CreateShaderResourceView(mTexture2DFromFile, &descSRV, &mTexture2DShaderResourceViewFromFile);
+
+	//////////////////////////////////////////////////////////////////////////
+	// create Sampler
+	//////////////////////////////////////////////////////////////////////////
+
+	D3D10_SAMPLER_DESC descSampler;
+	descSampler.Filter = D3D10_FILTER_MIN_MAG_MIP_LINEAR;
+	descSampler.AddressU = D3D10_TEXTURE_ADDRESS_CLAMP;
+	descSampler.AddressV = D3D10_TEXTURE_ADDRESS_CLAMP;
+	descSampler.AddressW = D3D10_TEXTURE_ADDRESS_CLAMP;
+	descSampler.MipLODBias = 0.0f;
+	descSampler.MaxAnisotropy = 16;
+	descSampler.ComparisonFunc = D3D10_COMPARISON_NEVER;
+	descSampler.BorderColor[0] = 1.0f;
+	descSampler.BorderColor[1] = 0.0f;
+	descSampler.BorderColor[2] = 0.0f;
+	descSampler.BorderColor[3] = 1.0f;
+	descSampler.MinLOD = 0.0f;
+	descSampler.MaxLOD = FLT_MAX;
+	mD3D10Dev->CreateSamplerState(&descSampler, &mSamplerState);
+
+	//////////////////////////////////////////////////////////////////////////
 	// create Vertex Buffer
 	//////////////////////////////////////////////////////////////////////////
 
@@ -222,6 +260,8 @@ void CAppMain::Destroy()
 	mVertexBuffer->Release();
 	mWindowDepthStencilView->Release();
 	mTexture2DShaderResourceView->Release();
+	mTexture2DShaderResourceViewFromFile->Release();
+	mTexture2DFromFile->Release();
 	mTexture2D->Release();
 	mWindowDepthStencilView->Release();
 	mWindowDepthStencilTexture2D->Release();
@@ -257,7 +297,7 @@ void CAppMain::Render()
 
 	// mat projection
 	D3DXMATRIX matProj;
-	D3DXMatrixPerspectiveFovRH(&matProj, D3DXToRadian(45), (FLOAT)mViewportWidth / mViewportHeight, 1.0f, 1000.0f);
+	D3DXMatrixPerspectiveFovRH(&matProj, (FLOAT)D3DXToRadian(45), (FLOAT)mViewportWidth / mViewportHeight, 1.0f, 1000.0f);
 
 	// WorldViewProjection
 	D3DXMATRIX WVP;
@@ -311,10 +351,11 @@ void CAppMain::Render()
 	mD3D10Dev->RSSetViewports(1, &vp);
 
 	// Geometry-Shader Stage
+
 	mD3D10Dev->PSSetConstantBuffers(0, 0, NULL);
-	mD3D10Dev->PSSetSamplers(0, 0, NULL);
+	mD3D10Dev->PSSetSamplers(0, 1, &mSamplerState);
 	mD3D10Dev->PSSetShader(mPixelShader);
-	mD3D10Dev->PSSetShaderResources(0, 0, NULL);
+	mD3D10Dev->PSSetShaderResources(0, 1, &mTexture2DShaderResourceViewFromFile);
 
 	// set render target view
 	//mD3D10Dev->OMSetBlendState();

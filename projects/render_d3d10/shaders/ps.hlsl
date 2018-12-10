@@ -14,6 +14,12 @@ struct PS_OUTPUT
     float4 oColor2 : SV_Target2;
 };
 
+// textures
+Texture2D tBaseTexture : register(t0);
+
+// samplers
+SamplerState sBaseSampler : register(s0);
+
 // main
 PS_OUTPUT main(PS_INPUT input)
 {
@@ -21,8 +27,7 @@ PS_OUTPUT main(PS_INPUT input)
     PS_OUTPUT output;
 
     // setup output
-    //output.oColor0 = input.vColor0;
-    output.oColor0 = input.vColor0;
+    output.oColor0 = tBaseTexture.Sample(sBaseSampler, input.vTexCoord0.xy);
     output.oColor1 = input.vColor0;
     output.oColor2 = input.vTexCoord0;
 

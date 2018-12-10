@@ -29,8 +29,8 @@ PS_OUTPUT main(PS_INPUT input)
     PS_OUTPUT output;
 
     // setup output
-    //output.oColor0 = tex2D(sBaseTexture, float2(input.vTexCoord0.x, 1 - input.vTexCoord0.y));
-    output.oColor0 = input.vColor0;
+    output.oColor0 = tex2D(sBaseTexture, float2(input.vTexCoord0.x, input.vTexCoord0.y));
+    //output.oColor0 = input.vColor0;
     output.oColor1 = input.vColor0 + input.vColor1;
     output.oColor2 = input.vTexCoord0;
 

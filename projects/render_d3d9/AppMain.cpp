@@ -7,9 +7,9 @@ struct CUSTOMVERTEX { FLOAT X, Y, Z, W; FLOAT R, G, B, A; FLOAT U, V; };
 // vertex array
 CUSTOMVERTEX vertices[] = {
 	{ +1.0f, -1.0f, +0.0f, +1.0, /**/+1.0f, +1.0f, +0.0f, +1.0, /**/+1, +0 },
-{ +1.0f, +1.0f, +0.0f, +1.0, /**/+1.0f, +1.0f, +0.0f, +1.0, /**/+1, +1 },
-{ -1.0f, -1.0f, +0.0f, +1.0, /**/+1.0f, +0.0f, +0.0f, +1.0, /**/+0, +0 },
-{ -1.0f, +1.0f, +0.0f, +1.0, /**/+1.0f, +1.0f, +0.0f, +1.0, /**/+0, +1 },
+	{ +1.0f, +1.0f, +0.0f, +1.0, /**/+1.0f, +1.0f, +0.0f, +1.0, /**/+1, +1 },
+	{ -1.0f, -1.0f, +0.0f, +1.0, /**/+1.0f, +0.0f, +0.0f, +1.0, /**/+0, +0 },
+	{ -1.0f, +1.0f, +0.0f, +1.0, /**/+1.0f, +1.0f, +0.0f, +1.0, /**/+0, +1 },
 };
 
 // index array
@@ -175,7 +175,7 @@ void CAppMain::Render()
 
 	// mat projection
 	D3DXMATRIX matProj;
-	D3DXMatrixPerspectiveFovRH(&matProj, D3DXToRadian(45), (FLOAT)mViewportWidth / mViewportHeight, 1.0f, 1000.0f);
+	D3DXMatrixPerspectiveFovRH(&matProj, (FLOAT)D3DXToRadian(45), (FLOAT)mViewportWidth / mViewportHeight, 1.0f, 1000.0f);
 
 	// WorldViewProjection
 	D3DXMATRIX WVP;

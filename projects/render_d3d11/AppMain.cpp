@@ -25,11 +25,34 @@ void CAppMain::Init(const HWND hWnd)
 	GetClientRect(hWnd, &clientWindowRect);
 	mViewportWidth = (WORD)clientWindowRect.right - (WORD)clientWindowRect.left;
 	mViewportHeight = (WORD)clientWindowRect.bottom - (WORD)clientWindowRect.top;
+
+	// create swap chain description
+	DXGI_SWAP_CHAIN_DESC sd{ 0 };
+	sd.BufferDesc.Width = mViewportWidth;
+	sd.BufferDesc.Height = mViewportHeight;
+	sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	sd.BufferDesc.RefreshRate.Numerator = 60;
+	sd.BufferDesc.RefreshRate.Denominator = 1;
+	sd.SampleDesc.Count = 1;
+	sd.SampleDesc.Quality = 0;
+	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	sd.BufferCount = 1;
+	sd.OutputWindow = hWnd;
+	sd.Windowed = true;
+	sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+	sd.Flags = 0;
+	D3D_FEATURE_LEVEL pFeatureLevels[] = { D3D_FEATURE_LEVEL_11_0 };
+	UINT pFeatureLevelsCount = sizeof(pFeatureLevels) / sizeof(pFeatureLevels[0]);
+	D3D_FEATURE_LEVEL pFeatureLevelsSelected = D3D_FEATURE_LEVEL_11_0;
+	HRESULT hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0, pFeatureLevels, pFeatureLevelsCount, D3D11_SDK_VERSION, &sd, &mDXGISwapChain, &mD3D11Dev, &pFeatureLevelsSelected, &mD3D11DevCtx);
 }
 
 // Created SL-160225
 void CAppMain::Destroy()
-{	
+{
+	mD3D11DevCtx->Release();
+	mD3D11Dev->Release();
+	mDXGISwapChain->Release();
 }
 
 // Created SL-160225

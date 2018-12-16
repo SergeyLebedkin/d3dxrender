@@ -29,11 +29,11 @@ private:
 
 	// D3D10 scene handles
 	ID3D10Texture2D*          mTexture2D = nullptr;
-	ID3D10Texture2D*          mTexture2DFromFile = nullptr;
-	ID3D10SamplerState*       mSamplerState = nullptr;
-	ID3D10ShaderResourceView* mTexture2DShaderResourceViewFromFile = nullptr;
 	ID3D10ShaderResourceView* mTexture2DShaderResourceView = nullptr;
 	ID3D10RenderTargetView*   mTexture2DRenderTargetView = nullptr;
+	ID3D10Texture2D*          mTexture2DFromFile = nullptr;
+	ID3D10ShaderResourceView* mTexture2DShaderResourceViewFromFile = nullptr;
+	ID3D10SamplerState*       mSamplerState = nullptr;
 	ID3D10Buffer*             mVertexBuffer = nullptr;
 	ID3D10Buffer*             mIndexBuffer = nullptr;
 	ID3D10Buffer*             mConstantBuffer = nullptr;

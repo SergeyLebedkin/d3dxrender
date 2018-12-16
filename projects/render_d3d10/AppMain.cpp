@@ -299,11 +299,14 @@ void CAppMain::Destroy()
 	mConstantBuffer->Release();
 	mIndexBuffer->Release();
 	mVertexBuffer->Release();
-	mWindowDepthStencilView->Release();
-	mTexture2DShaderResourceView->Release();
+	mSamplerState->Release();
 	mTexture2DShaderResourceViewFromFile->Release();
 	mTexture2DFromFile->Release();
+	mTexture2DShaderResourceView->Release();
+	mTexture2DRenderTargetView->Release();
 	mTexture2D->Release();
+
+	// window render targets
 	mWindowDepthStencilView->Release();
 	mWindowDepthStencilTexture2D->Release();
 	mWindowRenderTargetView->Release();

@@ -29,35 +29,30 @@ void CAppMain::Init(const HWND hWnd)
 
 // Created SL-160225
 void CAppMain::Destroy()
-{
+{	
 }
 
 // Created SL-160225
 void CAppMain::Render()
 {
 	// mat world
-	D3DXMATRIX matRotate;
-	D3DXMATRIX matScale;
-	D3DXMATRIX matTranslate;
-	D3DXMatrixRotationZ(&matRotate, 0.0f);
-	D3DXMatrixScaling(&matScale, 1.0f, 1.0f, 1.0f);
-	D3DXMatrixTranslation(&matTranslate, 0.0f, 0.0f, 0.0f);
-	D3DXMATRIX matWorld = matRotate * matScale * matTranslate;
+	DirectX::XMMATRIX matRotate = DirectX::XMMatrixRotationZ(0.0f);
+	DirectX::XMMATRIX matScale = DirectX::XMMatrixScaling(1.0f, 1.0f, 1.0f);
+	DirectX::XMMATRIX matTranslate = DirectX::XMMatrixTranslation(0.0f, 0.0f, 0.0f);
+	DirectX::XMMATRIX matWorld = matRotate * matScale * matTranslate;
 
 	// mat view
-	D3DXMATRIX matView;
-	D3DXMatrixLookAtRH(&matView,
-		&D3DXVECTOR3(0.0f, 0.0f, 10.0f), // the camera position
-		&D3DXVECTOR3(0.0f, 0.0f, 0.0f),  // the look-at position
-		&D3DXVECTOR3(0.0f, 1.0f, 0.0f)   // the up direction
+	DirectX::XMMATRIX matView = DirectX::XMMatrixLookAtRH(
+		DirectX::XMVectorSet(0.0f, 0.0f, 10.0f, 1.0f), // the camera position
+		DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),  // the look-at position
+		DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f)   // the up direction
 	);
 
 	// mat projection
-	D3DXMATRIX matProj;
-	D3DXMatrixPerspectiveFovRH(&matProj, (FLOAT)D3DXToRadian(45), (FLOAT)mViewportWidth / mViewportHeight, 1.0f, 1000.0f);
+	DirectX::XMMATRIX matProj = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(45.0f), (FLOAT)mViewportWidth / mViewportHeight, 1.0f, 1000.0f);
 
 	// WorldViewProjection
-	D3DXMATRIX WVP;
+	DirectX::XMMATRIX WVP;
 	WVP = matWorld * matView * matProj;
 }
 

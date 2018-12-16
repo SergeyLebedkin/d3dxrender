@@ -5,6 +5,7 @@
 #include <D3D10.h>
 #include <D3DX10.h>
 #pragma warning( pop )
+#include <DirectXMath.h>
 
 // created SL-160225
 class CAppMain
@@ -40,6 +41,8 @@ private:
 	ID3D10PixelShader*        mPixelShader = nullptr;
 	ID3D10InputLayout*        mInputLayout = nullptr;
 	ID3D10RasterizerState*    mRasterizerState = nullptr;
+	ID3D10BlendState*         mBlendState = nullptr;
+	ID3D10DepthStencilState*  mDepthStencilState = nullptr;
 public:
 	CAppMain() {};
 	virtual ~CAppMain() {};

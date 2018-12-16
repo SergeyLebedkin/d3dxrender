@@ -29,17 +29,19 @@ void CAppMain::Init(const HWND hWnd)
 
 	// create swap chain description
 	DXGI_SWAP_CHAIN_DESC sd{ 0 };
-	sd.BufferCount = 1;
 	sd.BufferDesc.Width = mViewportWidth;
 	sd.BufferDesc.Height = mViewportHeight;
 	sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	sd.BufferDesc.RefreshRate.Numerator = 60;
 	sd.BufferDesc.RefreshRate.Denominator = 1;
-	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	sd.OutputWindow = hWnd;
 	sd.SampleDesc.Count = 1;
 	sd.SampleDesc.Quality = 0;
+	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	sd.BufferCount = 1;
+	sd.OutputWindow = hWnd;
 	sd.Windowed = true;
+	sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+	sd.Flags = 0;
 	D3D10CreateDeviceAndSwapChain(NULL, D3D10_DRIVER_TYPE_HARDWARE, NULL, 0, D3D10_SDK_VERSION, &sd, &mDXGISwapChain, &mD3D10Dev);
 
 	// get mWindowRenderTargetTexture2D and create mWindowRenderTargetView
@@ -245,12 +247,51 @@ void CAppMain::Init(const HWND hWnd)
 	descRasterizer.MultisampleEnable = false;
 	descRasterizer.AntialiasedLineEnable = true;
 	mD3D10Dev->CreateRasterizerState(&descRasterizer, &mRasterizerState);
+
+	//////////////////////////////////////////////////////////////////////////
+	// create Blend State
+	//////////////////////////////////////////////////////////////////////////
+
+	D3D10_BLEND_DESC descBlend{ 0 };
+	descBlend.AlphaToCoverageEnable	= FALSE;
+	descBlend.BlendEnable[0] = FALSE;
+	descBlend.SrcBlend = D3D10_BLEND_ONE;
+	descBlend.DestBlend = D3D10_BLEND_ZERO;
+	descBlend.BlendOp = D3D10_BLEND_OP_ADD;
+	descBlend.SrcBlendAlpha = D3D10_BLEND_ONE;
+	descBlend.DestBlendAlpha = D3D10_BLEND_ZERO;
+	descBlend.BlendOpAlpha = D3D10_BLEND_OP_ADD;
+	descBlend.RenderTargetWriteMask[0] = D3D10_COLOR_WRITE_ENABLE_ALL;
+	mD3D10Dev->CreateBlendState(&descBlend, &mBlendState);
+
+	//////////////////////////////////////////////////////////////////////////
+	// create Depth Stencil State
+	//////////////////////////////////////////////////////////////////////////
+
+	D3D10_DEPTH_STENCIL_DESC descDepthStencil{ 0 };
+	descDepthStencil.DepthEnable = true;
+	descDepthStencil.DepthWriteMask = D3D10_DEPTH_WRITE_MASK_ALL;
+	descDepthStencil.DepthFunc = D3D10_COMPARISON_LESS;
+	descDepthStencil.StencilEnable = false;
+	descDepthStencil.StencilReadMask = D3D10_DEFAULT_STENCIL_READ_MASK;
+	descDepthStencil.StencilWriteMask = D3D10_DEFAULT_STENCIL_WRITE_MASK;
+	descDepthStencil.FrontFace.StencilFailOp = D3D10_STENCIL_OP_KEEP;
+	descDepthStencil.FrontFace.StencilDepthFailOp = D3D10_STENCIL_OP_KEEP;
+	descDepthStencil.FrontFace.StencilPassOp = D3D10_STENCIL_OP_KEEP;
+	descDepthStencil.FrontFace.StencilFunc = D3D10_COMPARISON_ALWAYS;
+	descDepthStencil.BackFace.StencilFailOp = D3D10_STENCIL_OP_KEEP;
+	descDepthStencil.BackFace.StencilDepthFailOp = D3D10_STENCIL_OP_KEEP;
+	descDepthStencil.BackFace.StencilPassOp = D3D10_STENCIL_OP_KEEP;
+	descDepthStencil.BackFace.StencilFunc = D3D10_COMPARISON_ALWAYS;
+	mD3D10Dev->CreateDepthStencilState(&descDepthStencil, &mDepthStencilState);
 }
 
 // Created SL-160225
 void CAppMain::Destroy()
 {
 	// window render targets
+	mDepthStencilState->Release();
+	mBlendState->Release();
 	mRasterizerState->Release();
 	mInputLayout->Release();
 	mPixelShader->Release();
@@ -279,28 +320,23 @@ void CAppMain::Destroy()
 void CAppMain::Render()
 {
 	// mat world
-	D3DXMATRIX matRotate;
-	D3DXMATRIX matScale;
-	D3DXMATRIX matTranslate;
-	D3DXMatrixRotationZ(&matRotate, 0.0f);
-	D3DXMatrixScaling(&matScale, 1.0f, 1.0f, 1.0f);
-	D3DXMatrixTranslation(&matTranslate, 0.0f, 0.0f, 0.0f);
-	D3DXMATRIX matWorld = matRotate * matScale * matTranslate;
+	DirectX::XMMATRIX matRotate = DirectX::XMMatrixRotationZ(0.0f);
+	DirectX::XMMATRIX matScale = DirectX::XMMatrixScaling(1.0f, 1.0f, 1.0f);
+	DirectX::XMMATRIX matTranslate = DirectX::XMMatrixTranslation(0.0f, 0.0f, 0.0f);
+	DirectX::XMMATRIX matWorld = matRotate * matScale * matTranslate;
 
 	// mat view
-	D3DXMATRIX matView;
-	D3DXMatrixLookAtRH(&matView,
-		&D3DXVECTOR3(0.0f, 0.0f, 10.0f), // the camera position
-		&D3DXVECTOR3(0.0f, 0.0f, 0.0f),  // the look-at position
-		&D3DXVECTOR3(0.0f, 1.0f, 0.0f)   // the up direction
+	DirectX::XMMATRIX matView = DirectX::XMMatrixLookAtRH(
+		DirectX::XMVectorSet(0.0f, 0.0f, 10.0f, 1.0f), // the camera position
+		DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),  // the look-at position
+		DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f)   // the up direction
 	);
 
 	// mat projection
-	D3DXMATRIX matProj;
-	D3DXMatrixPerspectiveFovRH(&matProj, (FLOAT)D3DXToRadian(45), (FLOAT)mViewportWidth / mViewportHeight, 1.0f, 1000.0f);
+	DirectX::XMMATRIX matProj = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(45.0f), (FLOAT)mViewportWidth / mViewportHeight, 1.0f, 1000.0f);
 
 	// WorldViewProjection
-	D3DXMATRIX WVP;
+	DirectX::XMMATRIX WVP;
 	WVP = matWorld * matView * matProj;
 
 	// Setup the viewport
@@ -329,7 +365,7 @@ void CAppMain::Render()
 	// Vertex-Shader Stage
 	void * pData = nullptr;
 	mConstantBuffer->Map(D3D10_MAP_WRITE_DISCARD, 0, &pData);
-	memcpy(pData, WVP, sizeof(WVP));
+	memcpy(pData, &WVP, sizeof(WVP));
 	mConstantBuffer->Unmap();
 	mD3D10Dev->VSSetConstantBuffers(0, 1, &mConstantBuffer);
 	mD3D10Dev->VSSetSamplers(0, 0, NULL);
@@ -358,8 +394,8 @@ void CAppMain::Render()
 	mD3D10Dev->PSSetShaderResources(0, 1, &mTexture2DShaderResourceViewFromFile);
 
 	// set render target view
-	//mD3D10Dev->OMSetBlendState();
-	//mD3D10Dev->OMSetDepthStencilState();
+	mD3D10Dev->OMSetBlendState(mBlendState, NULL, 0xffffffff);
+	mD3D10Dev->OMSetDepthStencilState(mDepthStencilState, 0);
 	mD3D10Dev->OMSetRenderTargets(1, &mWindowRenderTargetView, mWindowDepthStencilView);
 
 	// DRAW !!!!!

@@ -27,24 +27,26 @@ void CAppMain::Init(const HWND hWnd)
 	mViewportHeight = (WORD)clientWindowRect.bottom - (WORD)clientWindowRect.top;
 
 	// create swap chain description
-	DXGI_SWAP_CHAIN_DESC sd{ 0 };
-	sd.BufferDesc.Width = mViewportWidth;
-	sd.BufferDesc.Height = mViewportHeight;
-	sd.BufferDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
-	sd.BufferDesc.RefreshRate.Numerator = 60;
-	sd.BufferDesc.RefreshRate.Denominator = 1;
-	sd.SampleDesc.Count = 1;
-	sd.SampleDesc.Quality = 0;
-	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	sd.BufferCount = 1;
-	sd.OutputWindow = hWnd;
-	sd.Windowed = true;
-	sd.SwapEffect = DXGI_SWAP_EFFECT::DXGI_SWAP_EFFECT_DISCARD;
-	sd.Flags = 0;
+	DXGI_SWAP_CHAIN_DESC descSwapChain{ 0 };
+	descSwapChain.BufferCount = 1;
+	descSwapChain.BufferDesc.Height = mViewportHeight;
+	descSwapChain.BufferDesc.Width = mViewportWidth;
+	descSwapChain.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	descSwapChain.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	descSwapChain.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+	descSwapChain.OutputWindow = hWnd;
+	descSwapChain.Windowed = true;
+	descSwapChain.BufferDesc.RefreshRate.Numerator = 0;
+	descSwapChain.BufferDesc.RefreshRate.Denominator = 1;
+	descSwapChain.SampleDesc.Count = 1;
+	descSwapChain.SampleDesc.Quality = 0;
+	descSwapChain.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+	descSwapChain.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
+	descSwapChain.Flags = 0;
 	D3D_FEATURE_LEVEL pFeatureLevels[] = { D3D_FEATURE_LEVEL::D3D_FEATURE_LEVEL_11_0 };
 	UINT pFeatureLevelsCount = sizeof(pFeatureLevels) / sizeof(pFeatureLevels[0]);
 	D3D_FEATURE_LEVEL pFeatureLevelsSelected = D3D_FEATURE_LEVEL_11_0;
-	HRESULT hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0, pFeatureLevels, pFeatureLevelsCount, D3D11_SDK_VERSION, &sd, &mDXGISwapChain, &mD3D11Dev, &pFeatureLevelsSelected, &mD3D11DevCtx);
+	HRESULT hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0, pFeatureLevels, pFeatureLevelsCount, D3D11_SDK_VERSION, &descSwapChain, &mDXGISwapChain, &mD3D11Dev, &pFeatureLevelsSelected, &mD3D11DevCtx);
 
 	// get mWindowRenderTargetTexture2D and create mWindowRenderTargetView
 	mDXGISwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&mWindowRenderTargetTexture2D);

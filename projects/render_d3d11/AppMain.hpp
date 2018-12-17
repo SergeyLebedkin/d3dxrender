@@ -45,6 +45,8 @@ private:
 	ID3D11BlendState*         mBlendState = nullptr;
 	ID3D11DepthStencilState*  mDepthStencilState = nullptr;
 
+	// scene variables
+	DirectX::XMMATRIX mWVP;
 public:
 	CAppMain() {};
 	virtual ~CAppMain() {};
@@ -53,6 +55,7 @@ public:
 	void Init(const HWND hWnd);
 	void Destroy();
 	void Render();
+	void Update(float deltaTime);
 
 	// SetViewportSize
 	void SetViewportSize(WORD viewportWidth, WORD viewportHeight);

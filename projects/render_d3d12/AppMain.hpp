@@ -27,14 +27,18 @@ private:
 	ID3D12GraphicsCommandList* mGraphicsCommandList = nullptr;
 	ID3D12Fence*               mFence = nullptr;
 	ID3D12PipelineState*       mPipelineState = nullptr;
+
+	// scene variables
+	DirectX::XMMATRIX mWVP;
 public:
 	CAppMain() {};
 	virtual ~CAppMain() {};
 
 	// main functions
 	void Init(const HWND hWnd);
-	void Destroy();
+	void Destroy(); 
 	void Render();
+	void Update(float deltaTime);
 
 	// SetViewportSize
 	void SetViewportSize(WORD viewportWidth, WORD viewportHeight);

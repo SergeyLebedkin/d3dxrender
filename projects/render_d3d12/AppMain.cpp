@@ -103,26 +103,6 @@ void CAppMain::Destroy()
 // Created SL-160225
 void CAppMain::Render()
 {
-	// mat world
-	DirectX::XMMATRIX matRotate = DirectX::XMMatrixRotationZ(0.0f);
-	DirectX::XMMATRIX matScale = DirectX::XMMatrixScaling(1.0f, 1.0f, 1.0f);
-	DirectX::XMMATRIX matTranslate = DirectX::XMMatrixTranslation(0.0f, 0.0f, 0.0f);
-	DirectX::XMMATRIX matWorld = matRotate * matScale * matTranslate;
-
-	// mat view
-	DirectX::XMMATRIX matView = DirectX::XMMatrixLookAtRH(
-		DirectX::XMVectorSet(0.0f, 0.0f, 10.0f, 1.0f), // the camera position
-		DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),  // the look-at position
-		DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f)   // the up direction
-	);
-
-	// mat projection
-	DirectX::XMMATRIX matProj = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(45.0f), (FLOAT)mViewportWidth / mViewportHeight, 1.0f, 1000.0f);
-
-	// WorldViewProjection
-	DirectX::XMMATRIX WVP;
-	WVP = matWorld * matView * matProj;
-
 	HRESULT hr = S_OK;
 	hr = mCommandAllocator->Reset();
 	hr = mGraphicsCommandList->Reset(mCommandAllocator, mPipelineState);
@@ -158,6 +138,29 @@ void CAppMain::Render()
 	mÑommandQueue->ExecuteCommandLists(1, ppCommandLists);
 
 	hr = mDXGISwapChain->Present(0, 0);
+}
+
+// Created SL-160225
+void CAppMain::Update(float deltaTime)
+{
+	// mat world
+	DirectX::XMMATRIX matRotate = DirectX::XMMatrixRotationZ(0.0f);
+	DirectX::XMMATRIX matScale = DirectX::XMMatrixScaling(1.0f, 1.0f, 1.0f);
+	DirectX::XMMATRIX matTranslate = DirectX::XMMatrixTranslation(0.0f, 0.0f, 0.0f);
+	DirectX::XMMATRIX matWorld = matRotate * matScale * matTranslate;
+
+	// mat view
+	DirectX::XMMATRIX matView = DirectX::XMMatrixLookAtRH(
+		DirectX::XMVectorSet(0.0f, 0.0f, 10.0f, 1.0f), // the camera position
+		DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),  // the look-at position
+		DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f)   // the up direction
+	);
+
+	// mat projection
+	DirectX::XMMATRIX matProj = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(45.0f), (FLOAT)mViewportWidth / mViewportHeight, 1.0f, 1000.0f);
+
+	// WorldViewProjection
+	mWVP = matWorld * matView * matProj;
 }
 
 // Created SL-160225

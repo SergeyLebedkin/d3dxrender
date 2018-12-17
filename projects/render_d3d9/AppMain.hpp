@@ -2,6 +2,7 @@
 
 #include <d3d9.h>
 #include <d3dx9.h>
+#include <DirectXMath.h>
 
 // created SL-160225
 class CAppMain
@@ -22,6 +23,9 @@ private:
 	IDirect3DVertexDeclaration9* mVertexDeclaration = nullptr;
 	IDirect3DVertexShader9*      mVertexShader = nullptr;
 	IDirect3DPixelShader9*       mPixelShader = nullptr;
+
+	// scene variables
+	DirectX::XMMATRIX mWVP;
 public:
 	CAppMain() {};
 	virtual ~CAppMain() {};
@@ -30,6 +34,7 @@ public:
 	void Init(const HWND hWnd);
 	void Destroy();
 	void Render();
+	void Update(float deltaTime);
 
 	// SetViewportSize
 	void SetViewportSize(WORD viewportWidth, WORD viewportHeight);

@@ -146,31 +146,6 @@ void CAppMain::Destroy()
 // Created SL-160225
 void CAppMain::Render()
 {
-	// mat world
-	D3DXMATRIX matRotate;
-	D3DXMATRIX matScale;
-	D3DXMATRIX matTranslate;
-	D3DXMatrixRotationZ(&matRotate, 0.0f);
-	D3DXMatrixScaling(&matScale, 1.0f, 1.0f, 1.0f);
-	D3DXMatrixTranslation(&matTranslate, 0.0f, 0.0f, 0.0f);
-	D3DXMATRIX matWorld = matRotate * matScale * matTranslate;
-
-	// mat view
-	D3DXMATRIX matView;
-	D3DXMatrixLookAtRH(&matView,
-		&D3DXVECTOR3(0.0f, 0.0f, 10.0f), // the camera position
-		&D3DXVECTOR3(0.0f, 0.0f, 0.0f),  // the look-at position
-		&D3DXVECTOR3(0.0f, 1.0f, 0.0f)   // the up direction
-	);
-
-	// mat projection
-	D3DXMATRIX matProj;
-	D3DXMatrixPerspectiveFovRH(&matProj, (FLOAT)D3DXToRadian(45), (FLOAT)mViewportWidth / mViewportHeight, 1.0f, 1000.0f);
-
-	// WorldViewProjection
-	D3DXMATRIX WVP;
-	WVP = matWorld * matView * matProj;
-
 	// clear
 	mD3D9Dev->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(1, 36, 86), 1.0f, 0);
 
@@ -194,7 +169,7 @@ void CAppMain::Render()
 
 	// uniform float4x4 uWVP : register(c0);
 	mD3D9Dev->SetVertexShader(mVertexShader);
-	mD3D9Dev->SetVertexShaderConstantF(0, WVP, 4);
+	mD3D9Dev->SetVertexShaderConstantF(0, (float *)&mWVP, 4);
 
 	// uniform float4 uColor0 : register(c0);
 	// uniform float4 uColor1 : register(c1);
@@ -224,6 +199,29 @@ void CAppMain::Render()
 
 	// flush
 	mD3D9Dev->Present(NULL, NULL, NULL, NULL);
+}
+
+// Created SL-160225
+void CAppMain::Update(float deltaTime)
+{
+	// mat world
+	DirectX::XMMATRIX matRotate = DirectX::XMMatrixRotationZ(0.0f);
+	DirectX::XMMATRIX matScale = DirectX::XMMatrixScaling(1.0f, 1.0f, 1.0f);
+	DirectX::XMMATRIX matTranslate = DirectX::XMMatrixTranslation(0.0f, 0.0f, 0.0f);
+	DirectX::XMMATRIX matWorld = matRotate * matScale * matTranslate;
+
+	// mat view
+	DirectX::XMMATRIX matView = DirectX::XMMatrixLookAtRH(
+		DirectX::XMVectorSet(0.0f, 0.0f, 10.0f, 1.0f), // the camera position
+		DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),  // the look-at position
+		DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f)   // the up direction
+	);
+
+	// mat projection
+	DirectX::XMMATRIX matProj = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(45.0f), (FLOAT)mViewportWidth / mViewportHeight, 1.0f, 1000.0f);
+
+	// WorldViewProjection
+	mWVP = matWorld * matView * matProj;
 }
 
 // Created SL-160225

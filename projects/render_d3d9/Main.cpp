@@ -77,7 +77,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			DispatchMessage(&msg);
 		}
 		else
+		{
+			appMain.Update(0.0f);
 			appMain.Render();
+		}
 
 		double t2 = (double)clock() / CLOCKS_PER_SEC;
 		SetWindowTextA(hWnd, std::to_string(1.0 / (t2 - t1)).c_str());

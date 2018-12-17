@@ -43,6 +43,9 @@ private:
 	ID3D10RasterizerState*    mRasterizerState = nullptr;
 	ID3D10BlendState*         mBlendState = nullptr;
 	ID3D10DepthStencilState*  mDepthStencilState = nullptr;
+
+	// scene variables
+	DirectX::XMMATRIX mWVP;
 public:
 	CAppMain() {};
 	virtual ~CAppMain() {};
@@ -51,6 +54,7 @@ public:
 	void Init(const HWND hWnd);
 	void Destroy();
 	void Render();
+	void Update(float deltaTime);
 
 	// SetViewportSize
 	void SetViewportSize(WORD viewportWidth, WORD viewportHeight);

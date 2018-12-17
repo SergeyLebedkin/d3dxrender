@@ -302,6 +302,8 @@ void CAppMain::Destroy()
 	mSamplerState->Release();
 	mTexture2DShaderResourceViewFromFile->Release();
 	mTexture2DFromFile->Release();
+
+	// texture
 	mTexture2DShaderResourceView->Release();
 	mTexture2DRenderTargetView->Release();
 	mTexture2D->Release();
@@ -350,7 +352,6 @@ void CAppMain::Render()
 	vp.Height = mViewportHeight;
 	vp.MinDepth = 0.0f;
 	vp.MaxDepth = 1.0f;
-	mD3D10Dev->RSSetViewports(1, &vp);
 
 	// Clear the back buffer 
 	float clearColor[4] = { 0.0f, 0.125f, 0.3f, 1.0f };
@@ -390,7 +391,6 @@ void CAppMain::Render()
 	mD3D10Dev->RSSetViewports(1, &vp);
 
 	// Geometry-Shader Stage
-
 	mD3D10Dev->PSSetConstantBuffers(0, 0, NULL);
 	mD3D10Dev->PSSetSamplers(0, 1, &mSamplerState);
 	mD3D10Dev->PSSetShader(mPixelShader);

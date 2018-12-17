@@ -30,7 +30,7 @@ void CAppMain::Init(const HWND hWnd)
 	DXGI_SWAP_CHAIN_DESC sd{ 0 };
 	sd.BufferDesc.Width = mViewportWidth;
 	sd.BufferDesc.Height = mViewportHeight;
-	sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	sd.BufferDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
 	sd.BufferDesc.RefreshRate.Numerator = 60;
 	sd.BufferDesc.RefreshRate.Denominator = 1;
 	sd.SampleDesc.Count = 1;
@@ -39,9 +39,9 @@ void CAppMain::Init(const HWND hWnd)
 	sd.BufferCount = 1;
 	sd.OutputWindow = hWnd;
 	sd.Windowed = true;
-	sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+	sd.SwapEffect = DXGI_SWAP_EFFECT::DXGI_SWAP_EFFECT_DISCARD;
 	sd.Flags = 0;
-	D3D_FEATURE_LEVEL pFeatureLevels[] = { D3D_FEATURE_LEVEL_11_0 };
+	D3D_FEATURE_LEVEL pFeatureLevels[] = { D3D_FEATURE_LEVEL::D3D_FEATURE_LEVEL_11_0 };
 	UINT pFeatureLevelsCount = sizeof(pFeatureLevels) / sizeof(pFeatureLevels[0]);
 	D3D_FEATURE_LEVEL pFeatureLevelsSelected = D3D_FEATURE_LEVEL_11_0;
 	HRESULT hr = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0, pFeatureLevels, pFeatureLevelsCount, D3D11_SDK_VERSION, &sd, &mDXGISwapChain, &mD3D11Dev, &pFeatureLevelsSelected, &mD3D11DevCtx);
@@ -273,17 +273,26 @@ void CAppMain::Destroy()
 	mConstantBuffer->Release();
 	mIndexBuffer->Release();
 	mVertexBuffer->Release();
+	mSamplerState->Release();
 	mTexture2DShaderResourceViewFromFile->Release();
 	mTexture2DFromFile->Release();
+
+	// texture
 	//mTexture2DShaderResourceView->Release();
+	//mTexture2DRenderTargetView->Release();
 	//mTexture2D->Release();
+
+	// window render targets
 	mWindowDepthStencilView->Release();
 	mWindowDepthStencilTexture2D->Release();
 	mWindowRenderTargetView->Release();
 	mWindowRenderTargetTexture2D->Release();
 
+	// D3D10 handlers
 	mD3D11DevCtx->Release();
 	mD3D11Dev->Release();
+
+	// DXGI handlers
 	mDXGISwapChain->Release();
 }
 
@@ -309,6 +318,83 @@ void CAppMain::Render()
 	// WorldViewProjection
 	DirectX::XMMATRIX WVP;
 	WVP = matWorld * matView * matProj;
+
+	// Setup the viewport
+	D3D11_VIEWPORT vp;
+	vp.TopLeftX = 0;
+	vp.TopLeftY = 0;
+	vp.Width = mViewportWidth;
+	vp.Height = mViewportHeight;
+	vp.MinDepth = 0.0f;
+	vp.MaxDepth = 1.0f;
+
+	// Clear the back buffer 
+	float clearColor[4] = { 0.0f, 0.125f, 0.3f, 1.0f };
+	mD3D11DevCtx->ClearRenderTargetView(mWindowRenderTargetView, clearColor);
+	mD3D11DevCtx->ClearDepthStencilView(mWindowDepthStencilView, D3D10_CLEAR_DEPTH | D3D10_CLEAR_STENCIL, 1.0f, 0);
+
+	// Input-Assembler Stage
+	UINT stride = sizeof(CUSTOMVERTEX);
+	UINT offset = 0;
+	mD3D11DevCtx->IASetInputLayout(mInputLayout);
+	mD3D11DevCtx->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	mD3D11DevCtx->IASetVertexBuffers(0, 1, &mVertexBuffer, &stride, &offset);
+	mD3D11DevCtx->IASetIndexBuffer(mIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
+
+	// update constant buffer data
+	D3D11_MAPPED_SUBRESOURCE ms;
+	mD3D11DevCtx->Map(mConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &ms);
+	memcpy(ms.pData, &WVP, sizeof(WVP));
+	mD3D11DevCtx->Unmap(mConstantBuffer, NULL);
+
+	// Vertex-Shader Stage
+	mD3D11DevCtx->VSSetConstantBuffers(0, 1, &mConstantBuffer);
+	mD3D11DevCtx->VSSetSamplers(0, 0, NULL);
+	mD3D11DevCtx->VSSetShader(mVertexShader, NULL, 0);
+	mD3D11DevCtx->VSSetShaderResources(0, 0, NULL);
+
+	// Hull-Shader Stage
+	mD3D11DevCtx->HSSetConstantBuffers(0, 0, NULL);
+	mD3D11DevCtx->HSSetSamplers(0, 0, NULL);
+	mD3D11DevCtx->HSSetShader(NULL, NULL, 0);
+	mD3D11DevCtx->HSSetShaderResources(0, 0, NULL);
+
+	// Domain-Shader Stage
+	mD3D11DevCtx->DSSetConstantBuffers(0, 0, NULL);
+	mD3D11DevCtx->DSSetSamplers(0, 0, NULL);
+	mD3D11DevCtx->DSSetShader(NULL, NULL, 0);
+	mD3D11DevCtx->DSSetShaderResources(0, 0, NULL);
+
+	// Geometry-Shader Stage
+	mD3D11DevCtx->GSSetConstantBuffers(0, 0, NULL);
+	mD3D11DevCtx->GSSetSamplers(0, 0, NULL);
+	mD3D11DevCtx->GSSetShader(NULL, NULL, 0);
+	mD3D11DevCtx->GSSetShaderResources(0, 0, NULL);
+
+	// Stream-Output Stage
+	mD3D11DevCtx->SOSetTargets(0, NULL, NULL);
+
+	// Rasterizer Stage
+	mD3D11DevCtx->RSSetScissorRects(0, NULL);
+	mD3D11DevCtx->RSSetState(mRasterizerState);
+	mD3D11DevCtx->RSSetViewports(1, &vp);
+
+	// Geometry-Shader Stage
+	mD3D11DevCtx->PSSetConstantBuffers(0, 0, NULL);
+	mD3D11DevCtx->PSSetSamplers(0, 1, &mSamplerState);
+	mD3D11DevCtx->PSSetShader(mPixelShader, NULL, 0);
+	mD3D11DevCtx->PSSetShaderResources(0, 1, &mTexture2DShaderResourceViewFromFile);
+
+	// set render target view
+	mD3D11DevCtx->OMSetBlendState(mBlendState, NULL, 0xffffffff);
+	mD3D11DevCtx->OMSetDepthStencilState(mDepthStencilState, 0);
+	mD3D11DevCtx->OMSetRenderTargets(1, &mWindowRenderTargetView, mWindowDepthStencilView);
+
+	// DRAW !!!!!
+	mD3D11DevCtx->DrawIndexed(6, 0, 0);
+
+	// Present the information rendered to the back buffer to the front buffer (the screen)
+	mDXGISwapChain->Present(0, 0);
 }
 
 // Created SL-160225

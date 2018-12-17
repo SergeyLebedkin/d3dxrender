@@ -107,13 +107,8 @@ void CAppMain::Init(const HWND hWnd)
 	ID3DXBuffer* vsErrorBuffer = nullptr;
 	ID3DXConstantTable* vsConstantTable = nullptr;
 	D3DXCompileShaderFromFile(L"shaders/vs.hlsl", NULL, NULL, "main", "vs_3_0", 0, &vsBuffer, &vsErrorBuffer, &vsConstantTable);
-	mD3D9Dev->CreateVertexShader((DWORD *)vsBuffer->GetBufferPointer(), &mVertexShader);
 
-	// Disassemble Vertex Shader
-	ID3DXBuffer* vsDisassembleBuffer = nullptr;
-	D3DXDisassembleShader((DWORD *)vsBuffer->GetBufferPointer(), TRUE, NULL, &vsDisassembleBuffer);
-	char * vsStringDisassembleShader = (char *)vsDisassembleBuffer->GetBufferPointer();
-	if (vsDisassembleBuffer) vsDisassembleBuffer->Release();
+	mD3D9Dev->CreateVertexShader((DWORD *)vsBuffer->GetBufferPointer(), &mVertexShader);
 
 	if (vsConstantTable) vsConstantTable->Release();
 	if (vsErrorBuffer) vsErrorBuffer->Release();
@@ -127,13 +122,8 @@ void CAppMain::Init(const HWND hWnd)
 	ID3DXBuffer* psErrorBuffer = nullptr;
 	ID3DXConstantTable* psConstantTable = nullptr;
 	D3DXCompileShaderFromFile(L"shaders/ps.hlsl", NULL, NULL, "main", "ps_3_0", 0, &psBuffer, &psErrorBuffer, &psConstantTable);
-	mD3D9Dev->CreatePixelShader((DWORD *)psBuffer->GetBufferPointer(), &mPixelShader);
 
-	// Disassemble Pixel Shader
-	ID3DXBuffer* psDisassembleBuffer = nullptr;
-	D3DXDisassembleShader((DWORD *)psBuffer->GetBufferPointer(), TRUE, NULL, &psDisassembleBuffer);
-	char * psDisassembleShader = (char *)psDisassembleBuffer->GetBufferPointer();
-	if (psDisassembleBuffer) psDisassembleBuffer->Release();
+	mD3D9Dev->CreatePixelShader((DWORD *)psBuffer->GetBufferPointer(), &mPixelShader);
 
 	if (psConstantTable) psConstantTable->Release();
 	if (psErrorBuffer) psErrorBuffer->Release();

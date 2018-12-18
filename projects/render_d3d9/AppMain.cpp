@@ -205,7 +205,8 @@ void CAppMain::Render()
 void CAppMain::Update(float deltaTime)
 {
 	// mat world
-	DirectX::XMMATRIX matRotate = DirectX::XMMatrixRotationZ(0.0f);
+	static float angle = 0.0f;
+	DirectX::XMMATRIX matRotate = DirectX::XMMatrixRotationZ(angle += deltaTime);
 	DirectX::XMMATRIX matScale = DirectX::XMMatrixScaling(1.0f, 1.0f, 1.0f);
 	DirectX::XMMATRIX matTranslate = DirectX::XMMatrixTranslation(0.0f, 0.0f, 0.0f);
 	DirectX::XMMATRIX matWorld = matRotate * matScale * matTranslate;

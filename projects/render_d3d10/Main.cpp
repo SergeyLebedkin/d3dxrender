@@ -1,5 +1,5 @@
-#include <ctime>
-#include <string> 
+#include <string>
+#include <chrono>
 #include "AppMain.hpp"
 
 // constants
@@ -65,11 +65,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	ShowWindow(hWnd, SW_SHOW);
 	UpdateWindow(hWnd);
 
+	// get time stamps
+	auto prevTimePoint = std::chrono::high_resolution_clock::now();
+	auto nextTimePoint = std::chrono::high_resolution_clock::now();
+
 	// main loop
 	MSG msg = { 0 };
 	while (msg.message != WM_QUIT)
 	{
-		double t1 = (double)clock() / CLOCKS_PER_SEC;
+		// get current time stamps
+		prevTimePoint = nextTimePoint;
+		nextTimePoint = std::chrono::high_resolution_clock::now();
+		float delta = std::chrono::duration_cast<std::chrono::duration<float>>(nextTimePoint - prevTimePoint).count();
 
 		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
 		{
@@ -78,12 +85,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 		else
 		{
-			appMain.Update(0.0f);
+			appMain.Update(delta);
 			appMain.Render();
 		}
 
-		double t2 = (double)clock() / CLOCKS_PER_SEC;
-		SetWindowTextA(hWnd, std::to_string(1.0 / (t2 - t1)).c_str());
+		SetWindowTextA(hWnd, std::to_string(1.0f / delta).c_str());
 	}
 
 	// destroy window and class

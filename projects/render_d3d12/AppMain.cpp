@@ -138,7 +138,6 @@ void CAppMain::Render()
 	mCommandAllocator->Reset();
 	mGraphicsCommandList->Reset(mCommandAllocator, nullptr);
 	
-	/*
 	D3D12_RESOURCE_BARRIER barrier;
 	barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
 	barrier.Transition.pResource = mBackBufferRenderTargets[mCurrentBackBufferIndex];
@@ -147,14 +146,12 @@ void CAppMain::Render()
 	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 	mGraphicsCommandList->ResourceBarrier(1, &barrier);
-	*/
 
 	// Then set the color to clear the window to.
 	float clearColor[4] = { 0.0f, 0.125f, 0.3f, 1.0f };
 	mGraphicsCommandList->ClearRenderTargetView(mBackBufferRenderTargetViews[mCurrentBackBufferIndex], clearColor, 0, NULL);
 	mGraphicsCommandList->OMSetRenderTargets(1, &mBackBufferRenderTargetViews[mCurrentBackBufferIndex], FALSE, NULL);
 
-	/*
 	// Indicate that the back buffer will now be used to present.
 	barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
 	barrier.Transition.pResource = mBackBufferRenderTargets[mCurrentBackBufferIndex];
@@ -163,7 +160,6 @@ void CAppMain::Render()
 	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 	mGraphicsCommandList->ResourceBarrier(1, &barrier);
-	*/
 
 	mGraphicsCommandList->Close();
 
@@ -174,18 +170,15 @@ void CAppMain::Render()
 	mÑommandQueue->ExecuteCommandLists(1, ppCommandLists);
 	mÑommandQueue->Signal(mFence, mFenceValue);
 
-	// wait for frame ends
-	if (mFence->GetCompletedValue() < mFenceValue)
-	{
-		mFence->SetEventOnCompletion(mFenceValue, mFenceEvent);
-		WaitForSingleObject(mFenceEvent, INFINITE);
-		mFenceValue++;
-	}
+	//////////////////////////////////////////////////////////////////////////
+
+	// wait for command queue execution is complete 
+	mFence->SetEventOnCompletion(mFenceValue, mFenceEvent);
+	WaitForSingleObject(mFenceEvent, INFINITE);
+	mFenceValue++;
 
 	// present
-	UINT buffIndex0 = mDXGISwapChain->GetCurrentBackBufferIndex();
 	mDXGISwapChain->Present(0, 0);
-	UINT buffIndex1 = mDXGISwapChain->GetCurrentBackBufferIndex();
 }
 
 // Created SL-160225

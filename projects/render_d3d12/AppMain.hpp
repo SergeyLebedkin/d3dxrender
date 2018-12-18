@@ -1,6 +1,6 @@
 #pragma once
 
-#include <dxgi.h>
+#include <dxgi1_4.h>
 #include <d3d12.h>
 #include <d3dcompiler.h>
 #include <DirectXMath.h>
@@ -14,19 +14,25 @@ private:
 	WORD mViewportHeight = 0;
 
 	// DXGI handlers
-	IDXGISwapChain* mDXGISwapChain = nullptr;
+	IDXGISwapChain3* mDXGISwapChain = nullptr;
 
 	// D3D12 handlers
 	ID3D12Device*       mD3D12Dev = nullptr;
 	ID3D12CommandQueue* m—ommandQueue = nullptr;
 
 	// Handlers
-	ID3D12DescriptorHeap*      mRenderTargetViewHeap = nullptr;
-	ID3D12Resource*            mBackBufferRenderTargets[2]{ nullptr, nullptr };
-	ID3D12CommandAllocator*    mCommandAllocator = nullptr;
-	ID3D12GraphicsCommandList* mGraphicsCommandList = nullptr;
-	ID3D12Fence*               mFence = nullptr;
-	ID3D12PipelineState*       mPipelineState = nullptr;
+	ID3D12DescriptorHeap*       mRenderTargetViewHeap = nullptr;
+	ID3D12Resource*             mBackBufferRenderTargets[2]{ nullptr, nullptr };
+	D3D12_CPU_DESCRIPTOR_HANDLE mBackBufferRenderTargetViews[2];
+	ID3D12CommandAllocator*     mCommandAllocator = nullptr;
+	ID3D12GraphicsCommandList*  mGraphicsCommandList = nullptr;
+	ID3D12Fence*                mFence = nullptr;
+
+	// events and fences
+	WORD                        mCurrentBackBufferIndex = 0;
+	HANDLE                      mFenceEvent = nullptr; 
+	UINT64                      mFenceValue = 0;
+	ID3D12PipelineState*        mPipelineState = nullptr;
 
 	// scene variables
 	DirectX::XMMATRIX mWVP;

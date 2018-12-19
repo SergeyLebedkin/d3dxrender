@@ -89,7 +89,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			appMain.Render();
 		}
 
-		SetWindowTextA(hWnd, std::to_string(1.0f / delta).c_str());
+		//SetWindowTextA(hWnd, std::to_string(1.0f / delta).c_str());
 	}
 
 	// destroy window and class

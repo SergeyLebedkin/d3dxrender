@@ -119,11 +119,20 @@ void CAppMain::Init(const HWND hWnd)
 	vkGetPhysicalDeviceQueueFamilyProperties(physicalDeviceGPU, &queueFamilyPropertiesCount, queueFamilyProperties.data());
 	for (uint32_t i = 0; i < queueFamilyProperties.size(); i++)
 	{
-		std::cout << queueFamilyProperties[i].timestampValidBits << std::endl;
-		std::cout << queueFamilyProperties[i].queueFlags << std::endl;
-		std::cout << queueFamilyProperties[i].queueCount << std::endl;
-		std::cout << i << std::endl;
-		std::cout << "=========================" << std::endl;
+		if (queueFamilyProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+			queueFamilyPropertieIndex = i;
+	}
+
+	// queueFamilyProperties debug output
+	std::cout << "Queue Family Properties : " << std::endl;
+	std::cout << "-------------------------" << std::endl;
+	for (uint32_t i = 0; i < queueFamilyProperties.size(); i++)
+	{
+		std::cout << "index              : " << i << std::endl;
+		std::cout << "timestampValidBits : " << queueFamilyProperties[i].timestampValidBits << std::endl;
+		std::cout << "queueFlags         : " << queueFamilyProperties[i].queueFlags << std::endl;
+		std::cout << "queueCount         : " << queueFamilyProperties[i].queueCount << std::endl;
+		std::cout << "-----------------------" << std::endl;
 		if (queueFamilyProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
 			queueFamilyPropertieIndex = i;
 	}

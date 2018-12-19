@@ -40,7 +40,7 @@ void CAppMain::Init(const HWND hWnd)
 
 	// create enabled extension names array
 	mEnabledExtensionNames.reserve(extensionsPropertiesCount);
-	for (auto extensionPropertie : mExtensionProperties)
+	for (auto& extensionPropertie : mExtensionProperties)
 		mEnabledExtensionNames.push_back(extensionPropertie.extensionName);
 
 	// Layer Properties
@@ -51,7 +51,7 @@ void CAppMain::Init(const HWND hWnd)
 
 	// create enabled extension names array
 	mEnabledLayerNames.reserve(layerPropertiesCount);
-	for (auto layerPropertie : mLayerProperties)
+	for (auto& layerPropertie : mLayerProperties)
 		mEnabledLayerNames.push_back(layerPropertie.layerName);
 
 	// VkApplicationInfo
@@ -73,7 +73,7 @@ void CAppMain::Init(const HWND hWnd)
 	instanceCreateInfo.ppEnabledLayerNames = mEnabledLayerNames.data();
 	instanceCreateInfo.enabledExtensionCount = (uint32_t)mEnabledExtensionNames.size();
 	instanceCreateInfo.ppEnabledExtensionNames = mEnabledExtensionNames.data();
-	vkResult = vkCreateInstance(&instanceCreateInfo, NULL, &mVkInstance);
+	vkResult = vkCreateInstance(&instanceCreateInfo, NULL, &mInstance);
 
 	// VkDebugUtilsMessengerCreateInfoEXT
 	VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
@@ -82,15 +82,15 @@ void CAppMain::Init(const HWND hWnd)
 	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 	createInfo.pfnUserCallback = DebugCallback;
 	createInfo.pUserData = nullptr;
-	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(mVkInstance, "vkCreateDebugUtilsMessengerEXT");
-	vkResult = func(mVkInstance, &createInfo, nullptr, &mDebugUtilsMessengerEXT);
+	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(mInstance, "vkCreateDebugUtilsMessengerEXT");
+	vkResult = func(mInstance, &createInfo, nullptr, &mDebugUtilsMessengerEXT);
 
 	// mPhysicalDevices
 	uint32_t physicalDevicesCount = 0;
-	vkResult = vkEnumeratePhysicalDevices(mVkInstance, &physicalDevicesCount, nullptr);
+	vkResult = vkEnumeratePhysicalDevices(mInstance, &physicalDevicesCount, nullptr);
 	mPhysicalDevices.resize(physicalDevicesCount);
-	vkResult = vkEnumeratePhysicalDevices(mVkInstance, &physicalDevicesCount, mPhysicalDevices.data());
-	for (auto physicalDevice : mPhysicalDevices)
+	vkResult = vkEnumeratePhysicalDevices(mInstance, &physicalDevicesCount, mPhysicalDevices.data());
+	for (auto& physicalDevice : mPhysicalDevices)
 	{
 		VkPhysicalDeviceProperties deviceProperties;
 		VkPhysicalDeviceFeatures deviceFeatures;
@@ -103,24 +103,61 @@ void CAppMain::Init(const HWND hWnd)
 		}
 	}
 
+	// VkQueueFamilyProperties
+	int32_t queueFamilyIndex = -1;
+	uint32_t queueFamilyCount = 0;
+	vkGetPhysicalDeviceQueueFamilyProperties(mPhysicalDevice, &queueFamilyCount, nullptr);
+	std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+	vkGetPhysicalDeviceQueueFamilyProperties(mPhysicalDevice, &queueFamilyCount, queueFamilies.data());
+	for (uint32_t i = 0; i < queueFamilies.size(); i++)
+	{
+		if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) 
+		{
+			std::cout << queueFamilies[i].timestampValidBits << std::endl;
+			std::cout << queueFamilies[i].queueFlags << std::endl;
+			std::cout << queueFamilies[i].queueCount << std::endl;
+			std::cout << i << std::endl;
+			std::cout << "=========================" << std::endl;
+			queueFamilyIndex = i;
+		}
+	}
+
+	// VkDeviceQueueCreateInfo
+	float queuePriority = 1.0f;
+	VkDeviceQueueCreateInfo queueCreateInfo = {};
+	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
+	queueCreateInfo.queueCount = 1;
+	queueCreateInfo.pQueuePriorities = &queuePriority;
+
 	// VkDeviceCreateInfo
 	VkDeviceCreateInfo deviceCreateInfo = {};
 	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	deviceCreateInfo.enabledLayerCount = (uint32_t)mEnabledLayerNames.size();
-	deviceCreateInfo.ppEnabledLayerNames = mEnabledLayerNames.data();
+	deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
+	deviceCreateInfo.queueCreateInfoCount = 1;
 	deviceCreateInfo.enabledExtensionCount = 0;
-	deviceCreateInfo.ppEnabledExtensionNames = VK_NULL_HANDLE;
+	instanceCreateInfo.enabledLayerCount = (uint32_t)mEnabledLayerNames.size();
+	instanceCreateInfo.ppEnabledLayerNames = mEnabledLayerNames.data();
 	deviceCreateInfo.pEnabledFeatures = &mPhysicalDeviceFeatures;
 	vkResult = vkCreateDevice(mPhysicalDevice, &deviceCreateInfo, nullptr, &mDevice);
+	vkGetDeviceQueue(mDevice, queueFamilyIndex, 0, &mQueue);
+
+	// VkSurfaceKHR
+	VkSurfaceKHR surface = VK_NULL_HANDLE;
+	VkWin32SurfaceCreateInfoKHR win32SurfaceCreateInfoKHR = {};
+	win32SurfaceCreateInfoKHR.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+	win32SurfaceCreateInfoKHR.hwnd = hWnd;
+	win32SurfaceCreateInfoKHR.hinstance = GetModuleHandle(nullptr);
+	vkResult = vkCreateWin32SurfaceKHR(mInstance, &win32SurfaceCreateInfoKHR, nullptr, &surface);
 }
 
 // Created SL-160225
 void CAppMain::Destroy()
 {
 	vkDestroyDevice(mDevice, nullptr);
-	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(mVkInstance, "vkDestroyDebugUtilsMessengerEXT");
-	func(mVkInstance, mDebugUtilsMessengerEXT, nullptr);
-	vkDestroyInstance(mVkInstance, nullptr);
+	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(mInstance, "vkDestroyDebugUtilsMessengerEXT");
+	func(mInstance, mDebugUtilsMessengerEXT, nullptr);
+	vkDestroyInstance(mInstance, nullptr);
 }
 
 // Created SL-160225

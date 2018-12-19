@@ -18,12 +18,13 @@ private:
 	std::vector<char*>                 mEnabledLayerNames;
 	std::vector<VkExtensionProperties> mExtensionProperties;
 	std::vector<char*>                 mEnabledExtensionNames;
-	VkInstance                         mVkInstance = VK_NULL_HANDLE;
+	VkInstance                         mInstance = VK_NULL_HANDLE;
 	VkDebugUtilsMessengerEXT           mDebugUtilsMessengerEXT;
 	std::vector<VkPhysicalDevice>      mPhysicalDevices;
 	VkPhysicalDevice                   mPhysicalDevice = VK_NULL_HANDLE;
 	VkPhysicalDeviceFeatures           mPhysicalDeviceFeatures;
 	VkDevice                           mDevice = VK_NULL_HANDLE;
+	VkQueue                            mQueue = VK_NULL_HANDLE;
 
 	// scene variables
 	DirectX::XMMATRIX mWVP;

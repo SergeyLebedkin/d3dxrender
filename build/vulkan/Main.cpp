@@ -3,8 +3,8 @@
 #include "AppMain.hpp"
 
 // constants
-WCHAR szWindowTitle[] = L"Direct3D9 window";
-WCHAR szWindowClass[] = L"app_con_d3d9";
+WCHAR szWindowTitle[] = L"Vulkan window";
+WCHAR szWindowClass[] = L"app_con_vulkan";
 
 // application main class
 CAppMain appMain;

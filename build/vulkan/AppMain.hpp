@@ -14,10 +14,11 @@ private:
 	WORD mViewportHeight = 0;
 
 	// Vulkan handlers
-	VkInstance               mInstance = VK_NULL_HANDLE;
-	VkDevice                 mDevice = VK_NULL_HANDLE;
-	VkQueue                  mQueue = VK_NULL_HANDLE;
-	VkSurfaceKHR             mSurface = VK_NULL_HANDLE;
+	VkInstance   mInstance = VK_NULL_HANDLE;
+	VkSurfaceKHR mSurface = VK_NULL_HANDLE;
+	VkDevice     mDevice = VK_NULL_HANDLE;
+	VkQueue      mGraphicsQueue = VK_NULL_HANDLE;
+	VkQueue      mPresentQueue = VK_NULL_HANDLE;
 
 	// scene variables
 	DirectX::XMMATRIX mWVP;

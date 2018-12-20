@@ -246,7 +246,7 @@ void CAppMain::Init(const HWND hWnd)
 		imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		imageViewCreateInfo.image = swapChainImage;
 		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		imageViewCreateInfo.format = swapchainCreateInfoKHR.imageFormat;
+		imageViewCreateInfo.format = VK_FORMAT_B8G8R8A8_UNORM;
 		imageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
 		imageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
 		imageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -395,7 +395,7 @@ void CAppMain::Init(const HWND hWnd)
 
 	// VkAttachmentDescription
 	VkAttachmentDescription colorAttachment = {};
-	colorAttachment.format = swapchainCreateInfoKHR.imageFormat;
+	colorAttachment.format = VK_FORMAT_B8G8R8A8_UNORM;
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -410,99 +410,99 @@ void CAppMain::Init(const HWND hWnd)
 	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 	// VkSubpassDescription
-	VkSubpassDescription subpass = {};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &colorAttachmentRef;
+	VkSubpassDescription subpassDescription = {};
+	subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpassDescription.colorAttachmentCount = 1;
+	subpassDescription.pColorAttachments = &colorAttachmentRef;
 
 	// VkRenderPassCreateInfo
-	VkRenderPassCreateInfo renderPassInfo = {};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.attachmentCount = 1;
-	renderPassInfo.pAttachments = &colorAttachment;
-	renderPassInfo.subpassCount = 1;
-	renderPassInfo.pSubpasses = &subpass;
-	vkResult = vkCreateRenderPass(mDevice, &renderPassInfo, nullptr, &mRenderPass);
+	VkRenderPassCreateInfo renderPassCreateInfo = {};
+	renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassCreateInfo.attachmentCount = 1;
+	renderPassCreateInfo.pAttachments = &colorAttachment;
+	renderPassCreateInfo.subpassCount = 1;
+	renderPassCreateInfo.pSubpasses = &subpassDescription;
+	vkResult = vkCreateRenderPass(mDevice, &renderPassCreateInfo, nullptr, &mRenderPass);
 
 	// VkGraphicsPipelineCreateInfo
-	VkGraphicsPipelineCreateInfo pipelineInfo = {};
-	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipelineInfo.stageCount = 2;
-	pipelineInfo.pStages = shaderStages;
-	pipelineInfo.pVertexInputState = &vertexInputInfo;
-	pipelineInfo.pInputAssemblyState = &inputAssembly;
-	pipelineInfo.pViewportState = &viewportState;
-	pipelineInfo.pRasterizationState = &rasterizer;
-	pipelineInfo.pMultisampleState = &multisampling;
-	pipelineInfo.pDepthStencilState = nullptr; // Optional
-	pipelineInfo.pColorBlendState = &colorBlending;
-	pipelineInfo.pDynamicState = nullptr; // Optional
-	pipelineInfo.layout = mPipelineLayout;
-	pipelineInfo.renderPass = mRenderPass;
-	pipelineInfo.subpass = 0;
-	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
-	pipelineInfo.basePipelineIndex = -1; // Optional
-	//vkResult = vkCreateGraphicsPipelines(mDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &mGraphicsPipeline);
+	VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo = {};
+	graphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	graphicsPipelineCreateInfo.stageCount = 2;
+	graphicsPipelineCreateInfo.pStages = shaderStages;
+	graphicsPipelineCreateInfo.pVertexInputState = &vertexInputInfo;
+	graphicsPipelineCreateInfo.pInputAssemblyState = &inputAssembly;
+	graphicsPipelineCreateInfo.pViewportState = &viewportState;
+	graphicsPipelineCreateInfo.pRasterizationState = &rasterizer;
+	graphicsPipelineCreateInfo.pMultisampleState = &multisampling;
+	graphicsPipelineCreateInfo.pDepthStencilState = nullptr; // Optional
+	graphicsPipelineCreateInfo.pColorBlendState = &colorBlending;
+	graphicsPipelineCreateInfo.pDynamicState = nullptr; // Optional
+	graphicsPipelineCreateInfo.layout = mPipelineLayout;
+	graphicsPipelineCreateInfo.renderPass = mRenderPass;
+	graphicsPipelineCreateInfo.subpass = 0;
+	graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
+	graphicsPipelineCreateInfo.basePipelineIndex = -1; // Optional
+	//vkResult = vkCreateGraphicsPipelines(mDevice, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo, nullptr, &mGraphicsPipeline);
 
 	// mSwapChainFramebuffers
 	mSwapChainFramebuffers.reserve(swapChainImagesCount);
 	for (auto& swapChainImageView : mSwapChainImageViews)
 	{
 		// VkFramebufferCreateInfo
-		VkFramebufferCreateInfo framebufferInfo = {};
-		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferInfo.renderPass = mRenderPass;
-		framebufferInfo.attachmentCount = 1;
-		framebufferInfo.pAttachments = &swapChainImageView;
-		framebufferInfo.width = swapchainCreateInfoKHR.imageExtent.width;
-		framebufferInfo.height = swapchainCreateInfoKHR.imageExtent.height;
-		framebufferInfo.layers = 1;
+		VkFramebufferCreateInfo framebufferCreateInfo = {};
+		framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferCreateInfo.renderPass = mRenderPass;
+		framebufferCreateInfo.attachmentCount = 1;
+		framebufferCreateInfo.pAttachments = &swapChainImageView;
+		framebufferCreateInfo.width = swapchainCreateInfoKHR.imageExtent.width;
+		framebufferCreateInfo.height = swapchainCreateInfoKHR.imageExtent.height;
+		framebufferCreateInfo.layers = 1;
 
 		// VkFramebuffer
 		VkFramebuffer swapChainFramebuffer = VK_NULL_HANDLE;
-		vkResult = vkCreateFramebuffer(mDevice, &framebufferInfo, nullptr, &swapChainFramebuffer);
+		vkResult = vkCreateFramebuffer(mDevice, &framebufferCreateInfo, nullptr, &swapChainFramebuffer);
 		mSwapChainFramebuffers.push_back(swapChainFramebuffer);
 	}
 
 	// VkCommandPoolCreateInfo
-	VkCommandPoolCreateInfo poolInfo = {};
-	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	poolInfo.queueFamilyIndex = queueFamilyPropertieIndexGraphics;
-	poolInfo.flags = 0; // Optional
-	vkResult = vkCreateCommandPool(mDevice, &poolInfo, nullptr, &mCommandPool);
+	VkCommandPoolCreateInfo commandPoolCreateInfo = {};
+	commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	commandPoolCreateInfo.queueFamilyIndex = queueFamilyPropertieIndexGraphics;
+	commandPoolCreateInfo.flags = 0; // Optional
+	vkResult = vkCreateCommandPool(mDevice, &commandPoolCreateInfo, nullptr, &mCommandPool);
 
 	// VkCommandBufferAllocateInfo
 	mCommandBuffers.resize(mSwapChainFramebuffers.size());
-	VkCommandBufferAllocateInfo allocInfo = {};
-	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.commandPool = mCommandPool;
-	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandBufferCount = (uint32_t)mCommandBuffers.size();
-	vkResult = vkAllocateCommandBuffers(mDevice, &allocInfo, mCommandBuffers.data());
+	VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
+	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	commandBufferAllocateInfo.commandPool = mCommandPool;
+	commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	commandBufferAllocateInfo.commandBufferCount = (uint32_t)mCommandBuffers.size();
+	vkResult = vkAllocateCommandBuffers(mDevice, &commandBufferAllocateInfo, mCommandBuffers.data());
 
 	// fill command buffers
 	for (size_t i = 0; i < mCommandBuffers.size(); i++)
 	{
 		// VkCommandBufferBeginInfo
-		VkCommandBufferBeginInfo beginInfo = {};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-		beginInfo.pInheritanceInfo = nullptr; // Optional
+		VkCommandBufferBeginInfo commandBufferBeginInfo = {};
+		commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+		commandBufferBeginInfo.pInheritanceInfo = nullptr; // Optional
 
 		// vkBeginCommandBuffer
-		vkResult = vkBeginCommandBuffer(mCommandBuffers[i], &beginInfo);
+		vkResult = vkBeginCommandBuffer(mCommandBuffers[i], &commandBufferBeginInfo);
 
 		// VkRenderPassBeginInfo
-		VkRenderPassBeginInfo renderPassInfo = {};
+		VkRenderPassBeginInfo renderPassBeginInfo = {};
 		VkClearValue clearColor = { 0.0f, 0.125f, 0.3f, 1.0f };
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassInfo.renderPass = mRenderPass;
-		renderPassInfo.framebuffer = mSwapChainFramebuffers[i];
-		renderPassInfo.renderArea.offset = { 0, 0 };
-		renderPassInfo.renderArea.extent = swapchainCreateInfoKHR.imageExtent;
-		renderPassInfo.clearValueCount = 1;
-		renderPassInfo.pClearValues = &clearColor;
-		vkCmdBeginRenderPass(mCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassBeginInfo.renderPass = mRenderPass;
+		renderPassBeginInfo.framebuffer = mSwapChainFramebuffers[i];
+		renderPassBeginInfo.renderArea.offset = { 0, 0 };
+		renderPassBeginInfo.renderArea.extent = swapchainCreateInfoKHR.imageExtent;
+		renderPassBeginInfo.clearValueCount = 1;
+		renderPassBeginInfo.pClearValues = &clearColor;
+		vkCmdBeginRenderPass(mCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 			//vkCmdBindPipeline(mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
 			//vkCmdDraw(mCommandBuffers[i], 3, 1, 0, 0);
 		vkCmdEndRenderPass(mCommandBuffers[i]);

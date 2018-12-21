@@ -5,6 +5,8 @@
 #include <DirectXMath.h>
 #include <vector>
 
+void FillCommandBuffer(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer framebuffer);
+
 // created SL-160225
 class CAppMain
 {

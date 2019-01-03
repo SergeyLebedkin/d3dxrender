@@ -238,10 +238,16 @@ void CAppMain::Init(const HWND hWnd)
 	result = vkEnumerateInstanceExtensionProperties(nullptr, &extensionsPropertiesCount, extensionProperties.data());
 
 	// enabledExtensionNames
-	std::vector<char *> enabledExtensionNames;
+	std::vector<const char *> enabledExtensionNames;
 	enabledExtensionNames.reserve(extensionsPropertiesCount);
 	for (auto& extensionProperty : extensionProperties)
 		enabledExtensionNames.push_back(extensionProperty.extensionName);
+// 	for (auto& extensionProperty : extensionProperties)	{
+// 		if (!strcmp(VK_KHR_SURFACE_EXTENSION_NAME, extensionProperty.extensionName))
+// 			enabledExtensionNames.push_back(extensionProperty.extensionName);
+// 		if (!strcmp(VK_KHR_WIN32_SURFACE_EXTENSION_NAME, extensionProperty.extensionName))
+// 			enabledExtensionNames.push_back(extensionProperty.extensionName);
+// 	}
 
 	// VkLayerProperties
 	uint32_t layerPropertiesCount = 0;
@@ -357,14 +363,15 @@ void CAppMain::Init(const HWND hWnd)
 	for (uint32_t i = 0; i < queueFamilyProperties.size(); i++)
 	{
 		// get graphics queue family property index
-		if (queueFamilyProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+		if (queueFamilyProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 			queueFamilyPropertieIndexGraphics = i;
 
-		// get present queue family property index
-		VkBool32 presentSupport = false;
-		vkGetPhysicalDeviceSurfaceSupportKHR(physicalDeviceGPU, i, mSurface, &presentSupport);
-		if (queueFamilyProperties[i].queueCount > 0 && presentSupport)
-			queueFamilyPropertieIndexPresent = i;
+			// get present queue family property index
+			VkBool32 presentSupport = false;
+			vkGetPhysicalDeviceSurfaceSupportKHR(physicalDeviceGPU, i, mSurface, &presentSupport);
+			if (presentSupport)
+				queueFamilyPropertieIndexPresent = i;
+		}
 	}
 
 	// queue family properties debug output
@@ -380,7 +387,7 @@ void CAppMain::Init(const HWND hWnd)
 	}
 
 	// VkDeviceQueueCreateInfo
-	float queuePriority = 1.0f;
+	float queuePriority = 0.0f;
 	VkDeviceQueueCreateInfo deviceQueueCreateInfos[2];
 	// VkDeviceQueueCreateInfo - graphics
 	deviceQueueCreateInfos[0].pNext = VK_NULL_HANDLE;
@@ -397,14 +404,19 @@ void CAppMain::Init(const HWND hWnd)
 	deviceQueueCreateInfos[1].queueCount = 1;
 	deviceQueueCreateInfos[1].pQueuePriorities = &queuePriority;
 
+	// re-assign enabledExtensionNames
+	enabledExtensionNames.clear();
+	enabledExtensionNames.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
 	// VkDeviceCreateInfo
 	VkDeviceCreateInfo deviceCreateInfo = {};
 	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	deviceCreateInfo.queueCreateInfoCount = 2;
+	deviceCreateInfo.queueCreateInfoCount = 1;
 	deviceCreateInfo.pQueueCreateInfos = deviceQueueCreateInfos;
-	deviceCreateInfo.enabledExtensionCount = 0;
-	deviceCreateInfo.enabledLayerCount = (uint32_t)enabledLayerNames.size();
-	deviceCreateInfo.ppEnabledLayerNames = enabledLayerNames.data();
+	deviceCreateInfo.enabledExtensionCount = (uint32_t)enabledExtensionNames.size();
+	deviceCreateInfo.ppEnabledExtensionNames = enabledExtensionNames.data();
+	deviceCreateInfo.enabledLayerCount = 0;// (uint32_t)enabledLayerNames.size();
+	deviceCreateInfo.ppEnabledLayerNames = 0;// enabledLayerNames.data();
 	deviceCreateInfo.pEnabledFeatures = &physicalDeviceFeaturesGPU;
 	result = vkCreateDevice(physicalDeviceGPU, &deviceCreateInfo, nullptr, &mDevice);
 
@@ -424,9 +436,9 @@ void CAppMain::Init(const HWND hWnd)
 	swapchainCreateInfoKHR.imageExtent = surfaceCapabilitiesKHR.currentExtent;
 	swapchainCreateInfoKHR.imageArrayLayers = 1;
 	swapchainCreateInfoKHR.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	swapchainCreateInfoKHR.imageSharingMode = queueFamiliesEqual ? VK_SHARING_MODE_EXCLUSIVE : VK_SHARING_MODE_CONCURRENT;
-	swapchainCreateInfoKHR.queueFamilyIndexCount = queueFamiliesEqual ? 0 : 2;
-	swapchainCreateInfoKHR.pQueueFamilyIndices = queueFamiliesEqual ? nullptr : queueFamilyIndices;
+	swapchainCreateInfoKHR.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;//queueFamiliesEqual ? VK_SHARING_MODE_EXCLUSIVE : VK_SHARING_MODE_CONCURRENT;
+	swapchainCreateInfoKHR.queueFamilyIndexCount = 0;//queueFamiliesEqual ? 0 : 2;
+	swapchainCreateInfoKHR.pQueueFamilyIndices = nullptr;//queueFamiliesEqual ? nullptr : queueFamilyIndices;
 	swapchainCreateInfoKHR.preTransform = surfaceCapabilitiesKHR.currentTransform;
 	swapchainCreateInfoKHR.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 	swapchainCreateInfoKHR.presentMode = VK_PRESENT_MODE_FIFO_KHR;
@@ -473,19 +485,19 @@ void CAppMain::Init(const HWND hWnd)
 	vertShaderModuleCreateInfo.pCode = nullptr;
 	//result = vkCreateShaderModule(mDevice, &vertexShaderModuleCreateInfo, nullptr, &mVertexShaderModule);
 
-	// VkPipelineShaderStageCreateInfo - vertex shader
-	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
-	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-	vertShaderStageInfo.module = mVertexShaderModule;
-	vertShaderStageInfo.pName = "main";
-
 	// VkShaderModuleCreateInfo - pixel shader
 	VkShaderModuleCreateInfo fragShaderModuleCreateInfo = {};
 	fragShaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 	fragShaderModuleCreateInfo.codeSize = 0;
 	fragShaderModuleCreateInfo.pCode = nullptr;
 	//result = vkCreateShaderModule(mDevice, &fragmentShaderModuleCreateInfo, nullptr, &mFragmentShaderModule);
+
+	// VkPipelineShaderStageCreateInfo - vertex shader
+	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
+	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+	vertShaderStageInfo.module = mVertexShaderModule;
+	vertShaderStageInfo.pName = "main";
 
 	// VkPipelineShaderStageCreateInfo - fragment shader
 	VkPipelineShaderStageCreateInfo fragShaderStageInfo = {};
@@ -649,7 +661,7 @@ void CAppMain::Init(const HWND hWnd)
 	result = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &mImageAvailableSemaphore);
 	result = vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &mRenderFinishedSemaphore);
 
-	CreateImage(mDevice);
+	//CreateImage(mDevice);
 }
 
 // Created SL-160225

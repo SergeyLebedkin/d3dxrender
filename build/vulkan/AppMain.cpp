@@ -24,15 +24,17 @@ void FillCommandBuffer(VkCommandBuffer commandBuffer, VkRenderPass renderPass, V
 	// VkCommandBufferBeginInfo
 	VkCommandBufferBeginInfo commandBufferBeginInfo = {};
 	commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	commandBufferBeginInfo.pNext = VK_NULL_HANDLE;
 	commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 	commandBufferBeginInfo.pInheritanceInfo = nullptr; // Optional
-
-	// vkBeginCommandBuffer
 	result = vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
+
+	// VkClearValue
+	VkClearValue clearColor;
+	clearColor.color = { 0.0f, 0.125f, 0.3f, 1.0f };
 
 	// VkRenderPassBeginInfo
 	VkRenderPassBeginInfo renderPassBeginInfo = {};
-	VkClearValue clearColor = { 0.0f, 0.125f, 0.3f, 1.0f };
 	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassBeginInfo.renderPass = renderPass;
 	renderPassBeginInfo.framebuffer = framebuffer;
@@ -40,6 +42,8 @@ void FillCommandBuffer(VkCommandBuffer commandBuffer, VkRenderPass renderPass, V
 	renderPassBeginInfo.renderArea.extent = extent2D;
 	renderPassBeginInfo.clearValueCount = 1;
 	renderPassBeginInfo.pClearValues = &clearColor;
+
+	// GO RENDER
 	vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	//vkCmdBindPipeline(mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
 	//vkCmdDraw(mCommandBuffers[i], 3, 1, 0, 0);
@@ -114,7 +118,7 @@ VkRenderPass CreateRenderPass(VkDevice device)
 }
 
 // CreateFramebuffer
-VkFramebuffer CreateFramebuffer(VkDevice device, VkRenderPass renderPass, VkImageView imageView, VkExtent2D extent)
+VkFramebuffer CreateFramebuffer(VkDevice device, VkImageView imageView, VkExtent2D extent)
 {
 	// handles
 	VkResult result = VK_SUCCESS;
@@ -128,7 +132,7 @@ VkFramebuffer CreateFramebuffer(VkDevice device, VkRenderPass renderPass, VkImag
 	framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 	framebufferCreateInfo.pNext = VK_NULL_HANDLE;
 	framebufferCreateInfo.flags = 0;
-	framebufferCreateInfo.renderPass = renderPass;
+	framebufferCreateInfo.renderPass = VK_NULL_HANDLE;
 	framebufferCreateInfo.attachmentCount = 1;
 	framebufferCreateInfo.pAttachments = imageViews;
 	framebufferCreateInfo.width = extent.width;
@@ -217,12 +221,6 @@ VkImage CreateImage(VkDevice device)
 // Created SL-160225
 void CAppMain::Init(const HWND hWnd)
 {
-	// get client rect
-	RECT clientWindowRect{ 0 };
-	GetClientRect(hWnd, &clientWindowRect);
-	mViewportWidth = (WORD)clientWindowRect.right - (WORD)clientWindowRect.left;
-	mViewportHeight = (WORD)clientWindowRect.bottom - (WORD)clientWindowRect.top;
-
 	// console
 	AllocConsole();
 	freopen("CONOUT$", "w", stdout);
@@ -231,35 +229,33 @@ void CAppMain::Init(const HWND hWnd)
 	// VkInstance
 	VkResult result = VK_SUCCESS;
 
-	// VkExtensionProperties
-	uint32_t extensionsPropertiesCount = 0;
-	result = vkEnumerateInstanceExtensionProperties(nullptr, &extensionsPropertiesCount, nullptr);
-	std::vector<VkExtensionProperties> extensionProperties(extensionsPropertiesCount);
-	result = vkEnumerateInstanceExtensionProperties(nullptr, &extensionsPropertiesCount, extensionProperties.data());
-
-	// enabledExtensionNames
-	std::vector<const char *> enabledExtensionNames;
-	enabledExtensionNames.reserve(extensionsPropertiesCount);
-	for (auto& extensionProperty : extensionProperties)
-		enabledExtensionNames.push_back(extensionProperty.extensionName);
-// 	for (auto& extensionProperty : extensionProperties)	{
-// 		if (!strcmp(VK_KHR_SURFACE_EXTENSION_NAME, extensionProperty.extensionName))
-// 			enabledExtensionNames.push_back(extensionProperty.extensionName);
-// 		if (!strcmp(VK_KHR_WIN32_SURFACE_EXTENSION_NAME, extensionProperty.extensionName))
-// 			enabledExtensionNames.push_back(extensionProperty.extensionName);
-// 	}
+	//////////////////////////////////////////////////////////////////////////
+	// Vulkan Instance
+	//////////////////////////////////////////////////////////////////////////
 
 	// VkLayerProperties
-	uint32_t layerPropertiesCount = 0;
-	result = vkEnumerateInstanceLayerProperties(&layerPropertiesCount, nullptr);
-	std::vector<VkLayerProperties> layerProperties(layerPropertiesCount);
-	result = vkEnumerateInstanceLayerProperties(&layerPropertiesCount, layerProperties.data());
+	uint32_t instanceLayerPropertiesCount = 0;
+	result = vkEnumerateInstanceLayerProperties(&instanceLayerPropertiesCount, nullptr);
+	std::vector<VkLayerProperties> instanceLayerProperties(instanceLayerPropertiesCount);
+	result = vkEnumerateInstanceLayerProperties(&instanceLayerPropertiesCount, instanceLayerProperties.data());
 
-	// enabledLayerNames
-	std::vector<char *> enabledLayerNames;
-	enabledLayerNames.reserve(layerPropertiesCount);
-	for (auto& layerProperty : layerProperties)
-		enabledLayerNames.push_back(layerProperty.layerName);
+	// VkExtensionProperties
+	uint32_t instanceExtensionsPropertiesCount = 0;
+	result = vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionsPropertiesCount, nullptr);
+	std::vector<VkExtensionProperties> instanceExtensionProperties(instanceExtensionsPropertiesCount);
+	result = vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionsPropertiesCount, instanceExtensionProperties.data());
+
+	// enabledInstanceLayerNames
+	std::vector<const char *> enabledInstanceLayerNames;
+	enabledInstanceLayerNames.reserve(instanceLayerPropertiesCount);
+	for (const auto& instanceLayerPropertie : instanceLayerProperties)
+		enabledInstanceLayerNames.push_back(instanceLayerPropertie.layerName);
+
+	// enabledInstanceExtensionNames
+	std::vector<const char *> enabledInstanceExtensionNames;
+	enabledInstanceExtensionNames.reserve(instanceExtensionsPropertiesCount);
+	for (const auto& instanceExtensionPropertie : instanceExtensionProperties)
+		enabledInstanceExtensionNames.push_back(instanceExtensionPropertie.extensionName);
 
 	// VkApplicationInfo
 	VkApplicationInfo applicationInfo = {};
@@ -276,15 +272,19 @@ void CAppMain::Init(const HWND hWnd)
 	instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	instanceCreateInfo.pNext = VK_NULL_HANDLE;
 	instanceCreateInfo.pApplicationInfo = &applicationInfo;
-	instanceCreateInfo.enabledLayerCount = (uint32_t)enabledLayerNames.size();
-	instanceCreateInfo.ppEnabledLayerNames = enabledLayerNames.data();
-	instanceCreateInfo.enabledExtensionCount = (uint32_t)enabledExtensionNames.size();
-	instanceCreateInfo.ppEnabledExtensionNames = enabledExtensionNames.data();
+	instanceCreateInfo.enabledLayerCount = (uint32_t)enabledInstanceLayerNames.size();
+	instanceCreateInfo.ppEnabledLayerNames = enabledInstanceLayerNames.data();
+	instanceCreateInfo.enabledExtensionCount = (uint32_t)enabledInstanceExtensionNames.size();
+	instanceCreateInfo.ppEnabledExtensionNames = enabledInstanceExtensionNames.data();
 	result = vkCreateInstance(&instanceCreateInfo, NULL, &mInstance);
 
+	//////////////////////////////////////////////////////////////////////////
+	// Vulkan Extentions
+	//////////////////////////////////////////////////////////////////////////
+
 	// vkCreateDebugUtilsMessengerEXT and vkDestroyDebugUtilsMessengerEXT
-	vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(mInstance, "vkCreateDebugUtilsMessengerEXT");
-	vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(mInstance, "vkDestroyDebugUtilsMessengerEXT");
+	fnCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(mInstance, "vkCreateDebugUtilsMessengerEXT");
+	fnDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(mInstance, "vkDestroyDebugUtilsMessengerEXT");
 
 	// VkDebugUtilsMessengerCreateInfoEXT
 	VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfoEXT = {};
@@ -299,8 +299,12 @@ void CAppMain::Init(const HWND hWnd)
 		VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 	debugUtilsMessengerCreateInfoEXT.pfnUserCallback = DebugCallback;
 	debugUtilsMessengerCreateInfoEXT.pUserData = nullptr;
-	if (vkCreateDebugUtilsMessengerEXT)
-		vkCreateDebugUtilsMessengerEXT(mInstance, &debugUtilsMessengerCreateInfoEXT, nullptr, &mDebugUtilsMessengerEXT);
+	if (fnCreateDebugUtilsMessengerEXT)
+		fnCreateDebugUtilsMessengerEXT(mInstance, &debugUtilsMessengerCreateInfoEXT, nullptr, &mDebugUtilsMessengerEXT);
+
+	//////////////////////////////////////////////////////////////////////////
+	// Physical Device
+	//////////////////////////////////////////////////////////////////////////
 
 	// VkPhysicalDevice and VkPhysicalDeviceFeatures
 	uint32_t physicalDevicesCount = 0;
@@ -308,25 +312,81 @@ void CAppMain::Init(const HWND hWnd)
 	std::vector<VkPhysicalDevice> physicalDevices(physicalDevicesCount);
 	result = vkEnumeratePhysicalDevices(mInstance, &physicalDevicesCount, physicalDevices.data());
 
-	// find discrete GPU physical device and physical device features
+	// find discrete GPU physical device and physical device features and properties
 	VkPhysicalDevice physicalDeviceGPU = VK_NULL_HANDLE;
 	VkPhysicalDeviceFeatures physicalDeviceFeaturesGPU;
-	for (auto& physicalDevice : physicalDevices)
-	{
-		VkPhysicalDeviceProperties physicalDeviceProperties;
+	VkPhysicalDeviceProperties physicalDevicePropertiesGPU;
+	for (const auto& physicalDevice : physicalDevices)
+	{	
 		VkPhysicalDeviceFeatures physicalDeviceFeatures;
-		vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
+		VkPhysicalDeviceProperties physicalDeviceProperties;
 		vkGetPhysicalDeviceFeatures(physicalDevice, &physicalDeviceFeatures);
+		vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
 		if (physicalDeviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
 		{
 			physicalDeviceGPU = physicalDevice;
 			physicalDeviceFeaturesGPU = physicalDeviceFeatures;
+			physicalDevicePropertiesGPU = physicalDeviceProperties;
+			break;
 		}
 	}
+
+	// VkLayerProperties
+	uint32_t deviceLayerPropertiesCount = 0;
+	result = vkEnumerateDeviceLayerProperties(physicalDeviceGPU, &deviceLayerPropertiesCount, nullptr);
+	std::vector<VkLayerProperties> deviceLayerProperties(deviceLayerPropertiesCount);
+	result = vkEnumerateDeviceLayerProperties(physicalDeviceGPU, &deviceLayerPropertiesCount, deviceLayerProperties.data());
+
+	// VkExtensionProperties
+	uint32_t deviceExtensionsPropertiesCount = 0;
+	result = vkEnumerateDeviceExtensionProperties(physicalDeviceGPU, nullptr, &deviceExtensionsPropertiesCount, nullptr);
+	std::vector<VkExtensionProperties> deviceExtensionProperties(deviceExtensionsPropertiesCount);
+	result = vkEnumerateDeviceExtensionProperties(physicalDeviceGPU, nullptr, &deviceExtensionsPropertiesCount, deviceExtensionProperties.data());
+
+	// VkQueueFamilyProperties
+	uint32_t queueFamilyPropertiesCount = 0;
+	vkGetPhysicalDeviceQueueFamilyProperties(physicalDeviceGPU, &queueFamilyPropertiesCount, nullptr);
+	std::vector<VkQueueFamilyProperties> queueFamilyProperties(queueFamilyPropertiesCount);
+	vkGetPhysicalDeviceQueueFamilyProperties(physicalDeviceGPU, &queueFamilyPropertiesCount, queueFamilyProperties.data());
+
+	// VkPhysicalDeviceMemoryProperties
+	VkPhysicalDeviceMemoryProperties memProperties;
+	vkGetPhysicalDeviceMemoryProperties(physicalDeviceGPU, &memProperties);
+
+	// get graphics queue family property index
+	uint32_t queueFamilyPropertieIndexGraphics = MAXUINT32;
+	for (uint32_t i = 0; i < queueFamilyProperties.size(); i++) {
+		if (queueFamilyProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+			queueFamilyPropertieIndexGraphics = i;
+			break;
+		}
+	}
+	// get compute queue family property index
+	uint32_t queueFamilyPropertieIndexCompute = MAXUINT32;
+	for (uint32_t i = 0; i < queueFamilyProperties.size(); i++) {
+		if (queueFamilyProperties[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+			queueFamilyPropertieIndexCompute = i;
+			break;
+		}
+	}
+	// get transfer queue family property index
+	uint32_t queueFamilyPropertieIndexTransfer = MAXUINT32;
+	for (uint32_t i = 0; i < queueFamilyProperties.size(); i++) {
+		if (queueFamilyProperties[i].queueFlags & VK_QUEUE_TRANSFER_BIT) {
+			queueFamilyPropertieIndexTransfer = i;
+			break;
+		}
+	}
+
+	//////////////////////////////////////////////////////////////////////////
+	// Surface (KHR)
+	//////////////////////////////////////////////////////////////////////////
 
 	// VkWin32SurfaceCreateInfoKHR
 	VkWin32SurfaceCreateInfoKHR win32SurfaceCreateInfoKHR = {};
 	win32SurfaceCreateInfoKHR.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+	win32SurfaceCreateInfoKHR.pNext = VK_NULL_HANDLE;
+	win32SurfaceCreateInfoKHR.flags = 0;
 	win32SurfaceCreateInfoKHR.hwnd = hWnd;
 	win32SurfaceCreateInfoKHR.hinstance = GetModuleHandle(nullptr);
 	result = vkCreateWin32SurfaceKHR(mInstance, &win32SurfaceCreateInfoKHR, nullptr, &mSurface);
@@ -334,6 +394,8 @@ void CAppMain::Init(const HWND hWnd)
 	// VkSurfaceCapabilitiesKHR
 	VkSurfaceCapabilitiesKHR surfaceCapabilitiesKHR;
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDeviceGPU, mSurface, &surfaceCapabilitiesKHR);
+	mViewportWidth = surfaceCapabilitiesKHR.currentExtent.width;
+	mViewportHeight = surfaceCapabilitiesKHR.currentExtent.height;
 
 	// VkSurfaceFormatKHR
 	uint32_t physicalDeviceSurfaceFormatsCount = 0;
@@ -347,98 +409,122 @@ void CAppMain::Init(const HWND hWnd)
 	std::vector<VkPresentModeKHR> presentModes(physicalDeviceSurfacePresentModesCount);
 	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDeviceGPU, mSurface, &physicalDeviceSurfacePresentModesCount, presentModes.data());
 
-	// VkQueueFamilyProperties
-	uint32_t queueFamilyPropertiesCount = 0;
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDeviceGPU, &queueFamilyPropertiesCount, nullptr);
-	std::vector<VkQueueFamilyProperties> queueFamilyProperties(queueFamilyPropertiesCount);
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDeviceGPU, &queueFamilyPropertiesCount, queueFamilyProperties.data());
-
-	// VkPhysicalDeviceMemoryProperties
-	VkPhysicalDeviceMemoryProperties memProperties;
-	vkGetPhysicalDeviceMemoryProperties(physicalDeviceGPU, &memProperties);
-
-	// find graphics and present queue family property index
-	uint32_t queueFamilyPropertieIndexGraphics = MAXUINT32;
+	// find presentation queue family property index
 	uint32_t queueFamilyPropertieIndexPresent = MAXUINT32;
 	for (uint32_t i = 0; i < queueFamilyProperties.size(); i++)
 	{
-		// get graphics queue family property index
-		if (queueFamilyProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-			queueFamilyPropertieIndexGraphics = i;
-
-			// get present queue family property index
-			VkBool32 presentSupport = false;
-			vkGetPhysicalDeviceSurfaceSupportKHR(physicalDeviceGPU, i, mSurface, &presentSupport);
-			if (presentSupport)
-				queueFamilyPropertieIndexPresent = i;
+		// get present queue family property index
+		VkBool32 presentSupport = false;
+		vkGetPhysicalDeviceSurfaceSupportKHR(physicalDeviceGPU, i, mSurface, &presentSupport);
+		if (presentSupport) {
+			queueFamilyPropertieIndexPresent = i;
+			break;
 		}
 	}
 
-	// queue family properties debug output
-	std::cout << "Queue Family Properties : " << std::endl;
-	std::cout << "=========================" << std::endl;
-	for (uint32_t i = 0; i < queueFamilyProperties.size(); i++)
-	{
-		std::cout << "index              : " << i << std::endl;
-		std::cout << "timestampValidBits : " << queueFamilyProperties[i].timestampValidBits << std::endl;
-		std::cout << "queueFlags         : " << queueFamilyProperties[i].queueFlags << std::endl;
-		std::cout << "queueCount         : " << queueFamilyProperties[i].queueCount << std::endl;
-		std::cout << "-----------------------" << std::endl;
-	}
+	//////////////////////////////////////////////////////////////////////////
+	// Device
+	//////////////////////////////////////////////////////////////////////////
 
-	// VkDeviceQueueCreateInfo
-	float queuePriority = 0.0f;
-	VkDeviceQueueCreateInfo deviceQueueCreateInfos[2];
+	// enabledDeviceLayerNames
+	std::vector<const char *> enabledDeviceLayerNames;
+	enabledDeviceLayerNames.reserve(deviceLayerPropertiesCount);
+	for (const auto& deviceLayerPropertie : deviceLayerProperties)
+		enabledDeviceLayerNames.push_back(deviceLayerPropertie.layerName);
+
+	// enabledDeviceExtensionNames
+	std::vector<const char *> enabledDeviceExtensionNames;
+	enabledDeviceExtensionNames.reserve(deviceExtensionsPropertiesCount);
+	for (const auto& deviceExtensionPropertie : deviceExtensionProperties)
+		enabledDeviceExtensionNames.push_back(deviceExtensionPropertie.extensionName);
+
+	// deviceQueueCreateInfos
+	std::vector<VkDeviceQueueCreateInfo> deviceQueueCreateInfos;
+
 	// VkDeviceQueueCreateInfo - graphics
-	deviceQueueCreateInfos[0].pNext = VK_NULL_HANDLE;
-	deviceQueueCreateInfos[0].flags = 0;
-	deviceQueueCreateInfos[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-	deviceQueueCreateInfos[0].queueFamilyIndex = queueFamilyPropertieIndexGraphics;
-	deviceQueueCreateInfos[0].queueCount = 1;
-	deviceQueueCreateInfos[0].pQueuePriorities = &queuePriority;
-	// VkDeviceQueueCreateInfo - present
-	deviceQueueCreateInfos[1].pNext = VK_NULL_HANDLE;
-	deviceQueueCreateInfos[1].flags = 0;
-	deviceQueueCreateInfos[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-	deviceQueueCreateInfos[1].queueFamilyIndex = queueFamilyPropertieIndexPresent;
-	deviceQueueCreateInfos[1].queueCount = 1;
-	deviceQueueCreateInfos[1].pQueuePriorities = &queuePriority;
+	VkDeviceQueueCreateInfo deviceQueueCreateInfoGraphics;
+	deviceQueueCreateInfoGraphics.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	deviceQueueCreateInfoGraphics.pNext = VK_NULL_HANDLE;
+	deviceQueueCreateInfoGraphics.flags = 0;
+	deviceQueueCreateInfoGraphics.queueFamilyIndex = queueFamilyPropertieIndexGraphics;
+	deviceQueueCreateInfoGraphics.queueCount = 1;
+	deviceQueueCreateInfoGraphics.pQueuePriorities = nullptr;
+	deviceQueueCreateInfos.push_back(deviceQueueCreateInfoGraphics);
 
-	// re-assign enabledExtensionNames
-	enabledExtensionNames.clear();
-	enabledExtensionNames.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+	// VkDeviceQueueCreateInfo - compute
+	VkDeviceQueueCreateInfo deviceQueueCreateInfoCompute;
+	deviceQueueCreateInfoCompute.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	deviceQueueCreateInfoCompute.pNext = VK_NULL_HANDLE;
+	deviceQueueCreateInfoCompute.flags = 0;
+	deviceQueueCreateInfoCompute.queueFamilyIndex = queueFamilyPropertieIndexCompute;
+	deviceQueueCreateInfoCompute.queueCount = 1;
+	deviceQueueCreateInfoCompute.pQueuePriorities = nullptr;
+	//deviceQueueCreateInfos.push_back(deviceQueueCreateInfoCompute);
+
+	// VkDeviceQueueCreateInfo - transfer
+	VkDeviceQueueCreateInfo deviceQueueCreateInfoTransfer;
+	deviceQueueCreateInfoTransfer.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	deviceQueueCreateInfoTransfer.pNext = VK_NULL_HANDLE;
+	deviceQueueCreateInfoTransfer.flags = 0;
+	deviceQueueCreateInfoTransfer.queueFamilyIndex = queueFamilyPropertieIndexTransfer;
+	deviceQueueCreateInfoTransfer.queueCount = 1;
+	deviceQueueCreateInfoTransfer.pQueuePriorities = nullptr;
+	//deviceQueueCreateInfos.push_back(deviceQueueCreateInfoTransfer);
+
+	// VkDeviceQueueCreateInfo - present
+	VkDeviceQueueCreateInfo deviceQueueCreateInfoPresent;
+	deviceQueueCreateInfoPresent.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	deviceQueueCreateInfoPresent.pNext = VK_NULL_HANDLE;
+	deviceQueueCreateInfoPresent.flags = 0;
+	deviceQueueCreateInfoPresent.queueFamilyIndex = queueFamilyPropertieIndexPresent;
+	deviceQueueCreateInfoPresent.queueCount = 1;
+	deviceQueueCreateInfoPresent.pQueuePriorities = nullptr;
+	deviceQueueCreateInfos.push_back(deviceQueueCreateInfoPresent);
 
 	// VkDeviceCreateInfo
 	VkDeviceCreateInfo deviceCreateInfo = {};
 	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	deviceCreateInfo.queueCreateInfoCount = 1;
-	deviceCreateInfo.pQueueCreateInfos = deviceQueueCreateInfos;
-	deviceCreateInfo.enabledExtensionCount = (uint32_t)enabledExtensionNames.size();
-	deviceCreateInfo.ppEnabledExtensionNames = enabledExtensionNames.data();
-	deviceCreateInfo.enabledLayerCount = 0;// (uint32_t)enabledLayerNames.size();
-	deviceCreateInfo.ppEnabledLayerNames = 0;// enabledLayerNames.data();
+	deviceCreateInfo.pNext = VK_NULL_HANDLE;
+	deviceCreateInfo.flags = 0;
+	deviceCreateInfo.queueCreateInfoCount = (uint32_t)deviceQueueCreateInfos.size();
+	deviceCreateInfo.pQueueCreateInfos = deviceQueueCreateInfos.data();
+	deviceCreateInfo.enabledExtensionCount = (uint32_t)enabledDeviceExtensionNames.size();
+	deviceCreateInfo.ppEnabledExtensionNames = enabledDeviceExtensionNames.data();
+	deviceCreateInfo.enabledLayerCount = (uint32_t)enabledDeviceLayerNames.size();
+	deviceCreateInfo.ppEnabledLayerNames = enabledDeviceLayerNames.data();
 	deviceCreateInfo.pEnabledFeatures = &physicalDeviceFeaturesGPU;
 	result = vkCreateDevice(physicalDeviceGPU, &deviceCreateInfo, nullptr, &mDevice);
 
+	//////////////////////////////////////////////////////////////////////////
+	// Queues
+	//////////////////////////////////////////////////////////////////////////
+
 	// vkGetDeviceQueue
-	vkGetDeviceQueue(mDevice, queueFamilyPropertieIndexGraphics, 0, &mGraphicsQueue);
-	vkGetDeviceQueue(mDevice, queueFamilyPropertieIndexPresent, 0, &mPresentQueue);
-	uint32_t queueFamilyIndices[]{ queueFamilyPropertieIndexGraphics, queueFamilyPropertieIndexPresent };
-	bool queueFamiliesEqual = queueFamilyPropertieIndexGraphics == queueFamilyPropertieIndexPresent;
+	vkGetDeviceQueue(mDevice, queueFamilyPropertieIndexGraphics, 0, &mQueueGraphics);
+	vkGetDeviceQueue(mDevice, queueFamilyPropertieIndexCompute, 0, &mQueueCompute);
+	vkGetDeviceQueue(mDevice, queueFamilyPropertieIndexTransfer, 0, &mQueueTransfer);
+	vkGetDeviceQueue(mDevice, queueFamilyPropertieIndexPresent, 0, &mQueuePresent);
+
+	//////////////////////////////////////////////////////////////////////////
+	// Swap Chain
+	//////////////////////////////////////////////////////////////////////////
+
+	// queueFamilyIndices
+	std::vector<uint32_t> queueFamilyIndices = { queueFamilyPropertieIndexGraphics, queueFamilyPropertieIndexPresent };
 
 	// VkSwapchainCreateInfoKHR
 	VkSwapchainCreateInfoKHR swapchainCreateInfoKHR = {};
 	swapchainCreateInfoKHR.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	swapchainCreateInfoKHR.surface = mSurface;
-	swapchainCreateInfoKHR.minImageCount = surfaceCapabilitiesKHR.minImageCount + 1;
+	swapchainCreateInfoKHR.minImageCount = surfaceCapabilitiesKHR.minImageCount;
 	swapchainCreateInfoKHR.imageFormat = VK_FORMAT_B8G8R8A8_UNORM;
 	swapchainCreateInfoKHR.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 	swapchainCreateInfoKHR.imageExtent = surfaceCapabilitiesKHR.currentExtent;
 	swapchainCreateInfoKHR.imageArrayLayers = 1;
 	swapchainCreateInfoKHR.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	swapchainCreateInfoKHR.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;//queueFamiliesEqual ? VK_SHARING_MODE_EXCLUSIVE : VK_SHARING_MODE_CONCURRENT;
-	swapchainCreateInfoKHR.queueFamilyIndexCount = 0;//queueFamiliesEqual ? 0 : 2;
-	swapchainCreateInfoKHR.pQueueFamilyIndices = nullptr;//queueFamiliesEqual ? nullptr : queueFamilyIndices;
+	swapchainCreateInfoKHR.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+	swapchainCreateInfoKHR.queueFamilyIndexCount = (uint32_t)queueFamilyIndices.size();
+	swapchainCreateInfoKHR.pQueueFamilyIndices = queueFamilyIndices.data();
 	swapchainCreateInfoKHR.preTransform = surfaceCapabilitiesKHR.currentTransform;
 	swapchainCreateInfoKHR.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 	swapchainCreateInfoKHR.presentMode = VK_PRESENT_MODE_FIFO_KHR;
@@ -454,7 +540,7 @@ void CAppMain::Init(const HWND hWnd)
 
 	// mSwapChainImageViews
 	mSwapChainImageViews.reserve(swapChainImagesCount);
-	for (auto& swapChainImage : swapChainImages)
+	for (const auto& swapChainImage : swapChainImages)
 	{
 		// VkImageViewCreateInfo
 		VkImageViewCreateInfo imageViewCreateInfo = {};
@@ -477,6 +563,15 @@ void CAppMain::Init(const HWND hWnd)
 		result = vkCreateImageView(mDevice, &imageViewCreateInfo, nullptr, &imageView);
 		mSwapChainImageViews.push_back(imageView);
 	}
+
+	// mSwapChainFramebuffers
+	mSwapChainFramebuffers.reserve(swapChainImagesCount);
+	for (const auto& swapChainImageView : mSwapChainImageViews)
+		mSwapChainFramebuffers.push_back(CreateFramebuffer(mDevice, swapChainImageView, swapchainCreateInfoKHR.imageExtent));
+
+	//////////////////////////////////////////////////////////////////////////
+	// Pipeline
+	//////////////////////////////////////////////////////////////////////////
 
 	// VkShaderModuleCreateInfo - vertex shader
 	VkShaderModuleCreateInfo vertShaderModuleCreateInfo = {};
@@ -540,6 +635,8 @@ void CAppMain::Init(const HWND hWnd)
 	// VkPipelineViewportStateCreateInfo
 	VkPipelineViewportStateCreateInfo viewportState = {};
 	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewportState.pNext = VK_NULL_HANDLE;
+	viewportState.flags = 0;
 	viewportState.viewportCount = 1;
 	viewportState.pViewports = &viewport;
 	viewportState.scissorCount = 1;
@@ -548,6 +645,8 @@ void CAppMain::Init(const HWND hWnd)
 	// VkPipelineRasterizationStateCreateInfo
 	VkPipelineRasterizationStateCreateInfo rasterizer = {};
 	rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	rasterizer.pNext = VK_NULL_HANDLE;
+	rasterizer.flags = 0;
 	rasterizer.depthClampEnable = VK_FALSE;
 	rasterizer.rasterizerDiscardEnable = VK_FALSE;
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
@@ -562,6 +661,8 @@ void CAppMain::Init(const HWND hWnd)
 	// VkPipelineMultisampleStateCreateInfo
 	VkPipelineMultisampleStateCreateInfo multisampling = {};
 	multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisampling.pNext = VK_NULL_HANDLE;
+	multisampling.flags = 0;
 	multisampling.sampleShadingEnable = VK_FALSE;
 	multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 	multisampling.minSampleShading = 1.0f; // Optional
@@ -583,6 +684,8 @@ void CAppMain::Init(const HWND hWnd)
 	// VkPipelineColorBlendStateCreateInfo
 	VkPipelineColorBlendStateCreateInfo colorBlending = {};
 	colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	colorBlending.pNext = VK_NULL_HANDLE;
+	colorBlending.flags = 0;
 	colorBlending.logicOpEnable = VK_FALSE;
 	colorBlending.logicOp = VK_LOGIC_OP_COPY; // Optional
 	colorBlending.attachmentCount = 1;
@@ -596,12 +699,16 @@ void CAppMain::Init(const HWND hWnd)
 	VkPipelineDynamicStateCreateInfo dynamicState = {};
 	VkDynamicState dynamicStates[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_LINE_WIDTH };
 	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicState.pNext = VK_NULL_HANDLE;
+	dynamicState.flags = 0;
 	dynamicState.dynamicStateCount = 2;
 	dynamicState.pDynamicStates = dynamicStates;
 
 	// VkPipelineLayoutCreateInfo
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipelineLayoutInfo.pNext = VK_NULL_HANDLE;
+	pipelineLayoutInfo.flags = 0;
 	pipelineLayoutInfo.setLayoutCount = 0; // Optional
 	pipelineLayoutInfo.pSetLayouts = nullptr; // Optional
 	pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
@@ -613,6 +720,8 @@ void CAppMain::Init(const HWND hWnd)
 	// VkGraphicsPipelineCreateInfo
 	VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo = {};
 	graphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	graphicsPipelineCreateInfo.pNext = VK_NULL_HANDLE;
+	graphicsPipelineCreateInfo.flags = 0;
 	graphicsPipelineCreateInfo.stageCount = 2;
 	graphicsPipelineCreateInfo.pStages = shaderStages;
 	graphicsPipelineCreateInfo.pVertexInputState = &vertexInputInfo;
@@ -630,22 +739,19 @@ void CAppMain::Init(const HWND hWnd)
 	graphicsPipelineCreateInfo.basePipelineIndex = -1; // Optional
 	//result = vkCreateGraphicsPipelines(mDevice, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo, nullptr, &mGraphicsPipeline);
 
-	// mSwapChainFramebuffers
-	mSwapChainFramebuffers.reserve(swapChainImagesCount);
-	for (auto& swapChainImageView : mSwapChainImageViews)
-		mSwapChainFramebuffers.push_back(CreateFramebuffer(mDevice, mRenderPass, swapChainImageView, swapchainCreateInfoKHR.imageExtent));
-
 	// VkCommandPoolCreateInfo
 	VkCommandPoolCreateInfo commandPoolCreateInfo = {};
 	commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	commandPoolCreateInfo.pNext = VK_NULL_HANDLE;
+	commandPoolCreateInfo.flags = 0;
 	commandPoolCreateInfo.queueFamilyIndex = queueFamilyPropertieIndexGraphics;
-	commandPoolCreateInfo.flags = 0; // Optional
 	result = vkCreateCommandPool(mDevice, &commandPoolCreateInfo, nullptr, &mCommandPool);
 
 	// VkCommandBufferAllocateInfo
 	mCommandBuffers.resize(mSwapChainFramebuffers.size());
 	VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
 	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	commandBufferAllocateInfo.pNext = VK_NULL_HANDLE;
 	commandBufferAllocateInfo.commandPool = mCommandPool;
 	commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	commandBufferAllocateInfo.commandBufferCount = (uint32_t)mCommandBuffers.size();
@@ -681,8 +787,8 @@ void CAppMain::Destroy()
 		vkDestroyImageView(mDevice, swapChainImageView, nullptr);
 	vkDestroySwapchainKHR(mDevice, mSwapChain, nullptr);
 	vkDestroyDevice(mDevice, nullptr);
-	if (vkDestroyDebugUtilsMessengerEXT)
-		vkDestroyDebugUtilsMessengerEXT(mInstance, mDebugUtilsMessengerEXT, nullptr);
+	if (fnDestroyDebugUtilsMessengerEXT)
+		fnDestroyDebugUtilsMessengerEXT(mInstance, mDebugUtilsMessengerEXT, nullptr);
 	vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
 	vkDestroyInstance(mInstance, nullptr);
 }
@@ -711,7 +817,7 @@ void CAppMain::Render()
 	submitInfo.pCommandBuffers = &mCommandBuffers[imageIndex];
 
 	// vkQueueSubmit
-	result = vkQueueSubmit(mGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	result = vkQueueSubmit(mQueueGraphics, 1, &submitInfo, VK_NULL_HANDLE);
 
 	// VkPresentInfoKHR
 	VkPresentInfoKHR presentInfo = {};
@@ -723,8 +829,8 @@ void CAppMain::Render()
 	presentInfo.pSwapchains = swapChains;
 	presentInfo.pImageIndices = &imageIndex;
 	presentInfo.pResults = nullptr; // Optional
-	result = vkQueuePresentKHR(mPresentQueue, &presentInfo);
-	result = vkQueueWaitIdle(mPresentQueue);
+	result = vkQueuePresentKHR(mQueuePresent, &presentInfo);
+	result = vkQueueWaitIdle(mQueuePresent);
 }
 
 // Created SL-160225

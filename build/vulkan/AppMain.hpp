@@ -19,8 +19,10 @@ private:
 	VkInstance                   mInstance = VK_NULL_HANDLE;
 	VkSurfaceKHR                 mSurface = VK_NULL_HANDLE;
 	VkDevice                     mDevice = VK_NULL_HANDLE;
-	VkQueue                      mGraphicsQueue = VK_NULL_HANDLE;
-	VkQueue                      mPresentQueue = VK_NULL_HANDLE;
+	VkQueue                      mQueueGraphics = VK_NULL_HANDLE;
+	VkQueue                      mQueueCompute = VK_NULL_HANDLE;
+	VkQueue                      mQueueTransfer = VK_NULL_HANDLE;
+	VkQueue                      mQueuePresent = VK_NULL_HANDLE;
 	VkSwapchainKHR               mSwapChain = VK_NULL_HANDLE;
 	std::vector<VkImageView>     mSwapChainImageViews;
 	std::vector<VkFramebuffer>   mSwapChainFramebuffers;
@@ -39,8 +41,8 @@ private:
 
 	// debug and extensions
 	VkDebugUtilsMessengerEXT              mDebugUtilsMessengerEXT = VK_NULL_HANDLE;
-	PFN_vkCreateDebugUtilsMessengerEXT    vkCreateDebugUtilsMessengerEXT = VK_NULL_HANDLE;
-	PFN_vkDestroyDebugUtilsMessengerEXT   vkDestroyDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+	PFN_vkCreateDebugUtilsMessengerEXT    fnCreateDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+	PFN_vkDestroyDebugUtilsMessengerEXT   fnDestroyDebugUtilsMessengerEXT = VK_NULL_HANDLE;
 	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
 		VkDebugUtilsMessageTypeFlagsEXT             messageType,

@@ -32,7 +32,7 @@ private:
 	VkRenderPass                 mRenderPass = VK_NULL_HANDLE;
 	VkPipeline                   mGraphicsPipeline = VK_NULL_HANDLE;
 	VkCommandPool                mCommandPool = VK_NULL_HANDLE;
-	std::vector<VkCommandBuffer> mCommandBuffers;
+	VkCommandBuffer              mCommandBuffer = VK_NULL_HANDLE;
 	VkSemaphore                  mImageAvailableSemaphore;
 	VkSemaphore                  mRenderFinishedSemaphore;
 

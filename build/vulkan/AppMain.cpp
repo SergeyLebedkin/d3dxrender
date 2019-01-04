@@ -46,7 +46,6 @@ void FillCommandBuffer(VkCommandBuffer commandBuffer, VkRenderPass renderPass, V
 	// GO RENDER
 	vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	//vkCmdBindPipeline(mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
-	//vkCmdDraw(mCommandBuffers[i], 3, 1, 0, 0);
 	vkCmdEndRenderPass(commandBuffer);
 
 	// vkEndCommandBuffer
@@ -195,7 +194,7 @@ VkResult MapDeviceMemory(VkDevice device, VkDeviceMemory deviceMemory, void* src
 	// vkMapMemory/vkUnmapMemory
 	void* data = nullptr;
 	result = vkMapMemory(device, deviceMemory, 0, size, 0, &data);
-	memcpy(data, srcData, size);
+	memcpy(data, srcData, (size_t)size);
 	vkUnmapMemory(device, deviceMemory);
 
 	// return
@@ -459,7 +458,7 @@ void CAppMain::Init(const HWND hWnd)
 	deviceQueueCreateInfoCompute.queueFamilyIndex = queueFamilyPropertieIndexCompute;
 	deviceQueueCreateInfoCompute.queueCount = 1;
 	deviceQueueCreateInfoCompute.pQueuePriorities = nullptr;
-	//deviceQueueCreateInfos.push_back(deviceQueueCreateInfoCompute);
+	if (queueFamilyPropertieIndexGraphics != queueFamilyPropertieIndexCompute) deviceQueueCreateInfos.push_back(deviceQueueCreateInfoCompute);
 
 	// VkDeviceQueueCreateInfo - transfer
 	VkDeviceQueueCreateInfo deviceQueueCreateInfoTransfer;
@@ -469,7 +468,7 @@ void CAppMain::Init(const HWND hWnd)
 	deviceQueueCreateInfoTransfer.queueFamilyIndex = queueFamilyPropertieIndexTransfer;
 	deviceQueueCreateInfoTransfer.queueCount = 1;
 	deviceQueueCreateInfoTransfer.pQueuePriorities = nullptr;
-	//deviceQueueCreateInfos.push_back(deviceQueueCreateInfoTransfer);
+	if (queueFamilyPropertieIndexGraphics != queueFamilyPropertieIndexTransfer) deviceQueueCreateInfos.push_back(deviceQueueCreateInfoTransfer);
 
 	// VkDeviceQueueCreateInfo - present
 	VkDeviceQueueCreateInfo deviceQueueCreateInfoPresent;
@@ -479,7 +478,7 @@ void CAppMain::Init(const HWND hWnd)
 	deviceQueueCreateInfoPresent.queueFamilyIndex = queueFamilyPropertieIndexPresent;
 	deviceQueueCreateInfoPresent.queueCount = 1;
 	deviceQueueCreateInfoPresent.pQueuePriorities = nullptr;
-	deviceQueueCreateInfos.push_back(deviceQueueCreateInfoPresent);
+	if (queueFamilyPropertieIndexGraphics != queueFamilyPropertieIndexPresent) deviceQueueCreateInfos.push_back(deviceQueueCreateInfoPresent);
 
 	// VkDeviceCreateInfo
 	VkDeviceCreateInfo deviceCreateInfo = {};
@@ -506,17 +505,18 @@ void CAppMain::Init(const HWND hWnd)
 	vkGetDeviceQueue(mDevice, queueFamilyPropertieIndexPresent, 0, &mQueuePresent);
 
 	//////////////////////////////////////////////////////////////////////////
-	// Swap Chain
+	// SwapChain
 	//////////////////////////////////////////////////////////////////////////
 
 	// queueFamilyIndices
-	std::vector<uint32_t> queueFamilyIndices = { queueFamilyPropertieIndexGraphics, queueFamilyPropertieIndexPresent };
+	std::vector<uint32_t> queueFamilyIndices = { queueFamilyPropertieIndexGraphics };
+	if (queueFamilyPropertieIndexGraphics != queueFamilyPropertieIndexPresent) queueFamilyIndices.push_back(queueFamilyPropertieIndexPresent);
 
 	// VkSwapchainCreateInfoKHR
 	VkSwapchainCreateInfoKHR swapchainCreateInfoKHR = {};
 	swapchainCreateInfoKHR.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	swapchainCreateInfoKHR.surface = mSurface;
-	swapchainCreateInfoKHR.minImageCount = surfaceCapabilitiesKHR.minImageCount;
+	swapchainCreateInfoKHR.minImageCount = surfaceCapabilitiesKHR.minImageCount + 1;
 	swapchainCreateInfoKHR.imageFormat = VK_FORMAT_B8G8R8A8_UNORM;
 	swapchainCreateInfoKHR.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 	swapchainCreateInfoKHR.imageExtent = surfaceCapabilitiesKHR.currentExtent;
@@ -545,6 +545,8 @@ void CAppMain::Init(const HWND hWnd)
 		// VkImageViewCreateInfo
 		VkImageViewCreateInfo imageViewCreateInfo = {};
 		imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		imageViewCreateInfo.pNext = VK_NULL_HANDLE;
+		imageViewCreateInfo.flags = 0;
 		imageViewCreateInfo.image = swapChainImage;
 		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		imageViewCreateInfo.format = VK_FORMAT_B8G8R8A8_UNORM;
@@ -748,18 +750,13 @@ void CAppMain::Init(const HWND hWnd)
 	result = vkCreateCommandPool(mDevice, &commandPoolCreateInfo, nullptr, &mCommandPool);
 
 	// VkCommandBufferAllocateInfo
-	mCommandBuffers.resize(mSwapChainFramebuffers.size());
 	VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
 	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	commandBufferAllocateInfo.pNext = VK_NULL_HANDLE;
 	commandBufferAllocateInfo.commandPool = mCommandPool;
 	commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	commandBufferAllocateInfo.commandBufferCount = (uint32_t)mCommandBuffers.size();
-	result = vkAllocateCommandBuffers(mDevice, &commandBufferAllocateInfo, mCommandBuffers.data());
-
-	// fill command buffers
-	for (size_t i = 0; i < mCommandBuffers.size(); i++)
-		FillCommandBuffer(mCommandBuffers[i], mRenderPass, mSwapChainFramebuffers[i], swapchainCreateInfoKHR.imageExtent);
+	commandBufferAllocateInfo.commandBufferCount = 1;
+	result = vkAllocateCommandBuffers(mDevice, &commandBufferAllocateInfo, &mCommandBuffer);
 
 	// VkSemaphoreCreateInfo
 	VkSemaphoreCreateInfo semaphoreInfo = {};
@@ -802,6 +799,14 @@ void CAppMain::Render()
 	// vkAcquireNextImageKHR
 	result = vkAcquireNextImageKHR(mDevice, mSwapChain, UINT64_MAX, mImageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
+	// VkExtent2D
+	VkExtent2D extend2d;
+	extend2d.height = mViewportHeight;
+	extend2d.width = mViewportWidth;
+
+	// refill command buffer (RENDER CURRENT FRAME TO CURRENT FRAME BUFFER)
+	FillCommandBuffer(mCommandBuffer, mRenderPass, mSwapChainFramebuffers[imageIndex], extend2d);
+
 	// VkSubmitInfo
 	VkSemaphore waitSemaphores[] = { mImageAvailableSemaphore };
 	VkSemaphore signalSemaphores[] = { mRenderFinishedSemaphore };
@@ -814,7 +819,7 @@ void CAppMain::Render()
 	submitInfo.pSignalSemaphores = signalSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &mCommandBuffers[imageIndex];
+	submitInfo.pCommandBuffers = &mCommandBuffer;
 
 	// vkQueueSubmit
 	result = vkQueueSubmit(mQueueGraphics, 1, &submitInfo, VK_NULL_HANDLE);

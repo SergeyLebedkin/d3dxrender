@@ -24,6 +24,9 @@ private:
 	VkQueue                      mQueueTransfer = VK_NULL_HANDLE;
 	VkQueue                      mQueuePresent = VK_NULL_HANDLE;
 	VkSwapchainKHR               mSwapChain = VK_NULL_HANDLE;
+	VkImage                      mDepthStencilImage = VK_NULL_HANDLE;
+	VkImageView                  mDepthStencilImageView = VK_NULL_HANDLE;
+	VkDeviceMemory               mDepthStencilImageMem = VK_NULL_HANDLE;
 	std::vector<VkImageView>     mSwapChainImageViews;
 	std::vector<VkFramebuffer>   mSwapChainFramebuffers;
 	VkShaderModule               mVertexShaderModule = VK_NULL_HANDLE;
@@ -40,14 +43,19 @@ private:
 	DirectX::XMMATRIX mWVP;
 
 	// debug and extensions
-	VkDebugUtilsMessengerEXT              mDebugUtilsMessengerEXT = VK_NULL_HANDLE;
-	PFN_vkCreateDebugUtilsMessengerEXT    fnCreateDebugUtilsMessengerEXT = VK_NULL_HANDLE;
-	PFN_vkDestroyDebugUtilsMessengerEXT   fnDestroyDebugUtilsMessengerEXT = VK_NULL_HANDLE;
-	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
-		VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
-		VkDebugUtilsMessageTypeFlagsEXT             messageType,
-		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-		void*                                       pUserData);
+	VkDebugReportCallbackEXT            mDebugReportCallbackEXT = VK_NULL_HANDLE;
+	PFN_vkCreateDebugReportCallbackEXT  fnCreateDebugReportCallbackEXT = VK_NULL_HANDLE;
+	PFN_vkDebugReportMessageEXT         fnDebugReportMessageEXT = VK_NULL_HANDLE;
+	PFN_vkDestroyDebugReportCallbackEXT fnDestroyDebugReportCallbackEXT = VK_NULL_HANDLE;
+	static VKAPI_ATTR VkBool32 VKAPI_CALL MyDebugReportCallback(
+		VkDebugReportFlagsEXT       flags,
+		VkDebugReportObjectTypeEXT  objectType,
+		uint64_t                    object,
+		size_t                      location,
+		int32_t                     messageCode,
+		const char*                 pLayerPrefix,
+		const char*                 pMessage,
+		void*                       pUserData);
 public:
 	CAppMain() {};
 	virtual ~CAppMain() {};

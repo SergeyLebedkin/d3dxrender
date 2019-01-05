@@ -1,5 +1,6 @@
 #include "AppMain.hpp"
 #include <iostream>
+#include <algorithm>
 
 // vertex structure
 struct CUSTOMVERTEX { FLOAT X, Y, Z, W; FLOAT R, G, B, A; FLOAT U, V; };
@@ -30,8 +31,10 @@ void FillCommandBuffer(VkCommandBuffer commandBuffer, VkRenderPass renderPass, V
 	result = vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
 
 	// VkClearValue
-	VkClearValue clearColor;
-	clearColor.color = { 0.0f, 0.125f, 0.3f, 1.0f };
+	VkClearValue clearColors[2];
+	clearColors[0].color = { 0.0f, 0.125f, 0.3f, 1.0f };
+	clearColors[1].depthStencil.depth = 1.0f;
+	clearColors[1].depthStencil.stencil = 0;
 
 	// VkRenderPassBeginInfo
 	VkRenderPassBeginInfo renderPassBeginInfo = {};
@@ -40,8 +43,8 @@ void FillCommandBuffer(VkCommandBuffer commandBuffer, VkRenderPass renderPass, V
 	renderPassBeginInfo.framebuffer = framebuffer;
 	renderPassBeginInfo.renderArea.offset = { 0, 0 };
 	renderPassBeginInfo.renderArea.extent = extent2D;
-	renderPassBeginInfo.clearValueCount = 1;
-	renderPassBeginInfo.pClearValues = &clearColor;
+	renderPassBeginInfo.clearValueCount = 2;
+	renderPassBeginInfo.pClearValues = clearColors;
 
 	// GO RENDER
 	vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -59,29 +62,45 @@ VkRenderPass CreateRenderPass(VkDevice device)
 	VkResult result = VK_SUCCESS;
 	VkRenderPass renderPass = VK_NULL_HANDLE;
 
-	// VkAttachmentDescription
-	VkAttachmentDescription attachmentDescription = {};
-	attachmentDescription.format = VK_FORMAT_B8G8R8A8_UNORM;
-	attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
-	attachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	attachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	attachmentDescription.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	// VkAttachmentDescription - color
+	VkAttachmentDescription colorAttachmentDescription = {};
+	colorAttachmentDescription.flags = 0;
+	colorAttachmentDescription.format = VK_FORMAT_B8G8R8A8_UNORM;
+	colorAttachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
+	colorAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	colorAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	colorAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	// VkAttachmentDescription - depth-stencil
+	VkAttachmentDescription depthStencilAttachmentDescription = {};
+	depthStencilAttachmentDescription.flags = 0;
+	depthStencilAttachmentDescription.format = VK_FORMAT_D24_UNORM_S8_UINT;
+	depthStencilAttachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
+	depthStencilAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depthStencilAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depthStencilAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	depthStencilAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+	depthStencilAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	depthStencilAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 	// attachmentDescriptions
-	VkAttachmentDescription attachmentDescriptions[]{ attachmentDescription };
+	VkAttachmentDescription attachmentDescriptions[]{ colorAttachmentDescription, depthStencilAttachmentDescription };
 
 	//////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
 
-	// VkAttachmentReference
-	VkAttachmentReference attachmentReference = {};
-	attachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	attachmentReference.attachment = 0;
+	// VkAttachmentReference - color
+	VkAttachmentReference colorAttachmentReference = {};
+	colorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorAttachmentReference.attachment = 0;
 
-	// attachmentReferences
-	VkAttachmentReference attachmentReferences[]{ attachmentReference };
+	// VkAttachmentReference - depth-stencil
+	VkAttachmentReference depthStencilAttachmentReference = {};
+	depthStencilAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	depthStencilAttachmentReference.attachment = 1;
 
 	//////////////////////////////////////////////////////////////////////////
 
@@ -92,9 +111,9 @@ VkRenderPass CreateRenderPass(VkDevice device)
 	subpassDescription.inputAttachmentCount = 0;
 	subpassDescription.pInputAttachments = nullptr;
 	subpassDescription.colorAttachmentCount = 1;
-	subpassDescription.pColorAttachments = attachmentReferences;
+	subpassDescription.pColorAttachments = &colorAttachmentReference;
 	subpassDescription.pResolveAttachments = nullptr;
-	subpassDescription.pDepthStencilAttachment = nullptr;
+	subpassDescription.pDepthStencilAttachment = &depthStencilAttachmentReference;
 	subpassDescription.preserveAttachmentCount = 0;
 	subpassDescription.pPreserveAttachments = nullptr;
 
@@ -102,11 +121,12 @@ VkRenderPass CreateRenderPass(VkDevice device)
 	VkSubpassDescription subpassDescriptions[] = { subpassDescription };
 
 	//////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
 
 	// VkRenderPassCreateInfo
 	VkRenderPassCreateInfo renderPassCreateInfo = {};
 	renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassCreateInfo.attachmentCount = 1;
+	renderPassCreateInfo.attachmentCount = 2;
 	renderPassCreateInfo.pAttachments = attachmentDescriptions;
 	renderPassCreateInfo.subpassCount = 1;
 	renderPassCreateInfo.pSubpasses = subpassDescriptions;
@@ -117,22 +137,22 @@ VkRenderPass CreateRenderPass(VkDevice device)
 }
 
 // CreateFramebuffer
-VkFramebuffer CreateFramebuffer(VkDevice device, VkImageView imageView, VkExtent2D extent)
+VkFramebuffer CreateFramebuffer(VkDevice device, VkRenderPass renderPass, VkImageView imageView, VkImageView depthStencilImageView, VkExtent2D extent)
 {
 	// handles
 	VkResult result = VK_SUCCESS;
 	VkFramebuffer framebuffer = VK_NULL_HANDLE;
 
 	// image views
-	VkImageView imageViews[]{ imageView };
+	VkImageView imageViews[]{ imageView, depthStencilImageView };
 
 	// VkFramebufferCreateInfo 
 	VkFramebufferCreateInfo framebufferCreateInfo = {};
 	framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 	framebufferCreateInfo.pNext = VK_NULL_HANDLE;
 	framebufferCreateInfo.flags = 0;
-	framebufferCreateInfo.renderPass = VK_NULL_HANDLE;
-	framebufferCreateInfo.attachmentCount = 1;
+	framebufferCreateInfo.renderPass = renderPass;
+	framebufferCreateInfo.attachmentCount = 2;
 	framebufferCreateInfo.pAttachments = imageViews;
 	framebufferCreateInfo.width = extent.width;
 	framebufferCreateInfo.height = extent.height;
@@ -229,6 +249,23 @@ void CAppMain::Init(const HWND hWnd)
 	VkResult result = VK_SUCCESS;
 
 	//////////////////////////////////////////////////////////////////////////
+	// Vulkan Debug Callbacj info
+	//////////////////////////////////////////////////////////////////////////
+
+	// VkDebugReportCallbackCreateInfoEXT
+	VkDebugReportCallbackCreateInfoEXT callbackCreateInfo;
+	callbackCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
+	callbackCreateInfo.pNext = nullptr;
+	callbackCreateInfo.flags =
+		//VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
+		VK_DEBUG_REPORT_WARNING_BIT_EXT |
+		VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
+		VK_DEBUG_REPORT_ERROR_BIT_EXT |
+		VK_DEBUG_REPORT_DEBUG_BIT_EXT;
+	callbackCreateInfo.pfnCallback = &MyDebugReportCallback;
+	callbackCreateInfo.pUserData = nullptr;
+
+	//////////////////////////////////////////////////////////////////////////
 	// Vulkan Instance
 	//////////////////////////////////////////////////////////////////////////
 
@@ -269,7 +306,7 @@ void CAppMain::Init(const HWND hWnd)
 	// VkInstanceCreateInfo
 	VkInstanceCreateInfo instanceCreateInfo = {};
 	instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-	instanceCreateInfo.pNext = VK_NULL_HANDLE;
+	instanceCreateInfo.pNext = &callbackCreateInfo;
 	instanceCreateInfo.pApplicationInfo = &applicationInfo;
 	instanceCreateInfo.enabledLayerCount = (uint32_t)enabledInstanceLayerNames.size();
 	instanceCreateInfo.ppEnabledLayerNames = enabledInstanceLayerNames.data();
@@ -282,24 +319,13 @@ void CAppMain::Init(const HWND hWnd)
 	//////////////////////////////////////////////////////////////////////////
 
 	// vkCreateDebugUtilsMessengerEXT and vkDestroyDebugUtilsMessengerEXT
-	fnCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(mInstance, "vkCreateDebugUtilsMessengerEXT");
-	fnDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(mInstance, "vkDestroyDebugUtilsMessengerEXT");
+	fnCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(mInstance, "vkCreateDebugReportCallbackEXT");
+	fnDebugReportMessageEXT = (PFN_vkDebugReportMessageEXT)vkGetInstanceProcAddr(mInstance, "vkDebugReportMessageEXT");
+	fnDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(mInstance, "vkDestroyDebugReportCallbackEXT");
 
-	// VkDebugUtilsMessengerCreateInfoEXT
-	VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfoEXT = {};
-	debugUtilsMessengerCreateInfoEXT.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-	debugUtilsMessengerCreateInfoEXT.messageSeverity =
-		VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-		VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-		VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-	debugUtilsMessengerCreateInfoEXT.messageType =
-		VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-		VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-		VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-	debugUtilsMessengerCreateInfoEXT.pfnUserCallback = DebugCallback;
-	debugUtilsMessengerCreateInfoEXT.pUserData = nullptr;
-	if (fnCreateDebugUtilsMessengerEXT)
-		fnCreateDebugUtilsMessengerEXT(mInstance, &debugUtilsMessengerCreateInfoEXT, nullptr, &mDebugUtilsMessengerEXT);
+	// fnCreateDebugReportCallbackEXT
+	if (fnCreateDebugReportCallbackEXT)
+		result = fnCreateDebugReportCallbackEXT(mInstance, &callbackCreateInfo, nullptr, &mDebugReportCallbackEXT);
 
 	//////////////////////////////////////////////////////////////////////////
 	// Physical Device
@@ -342,12 +368,6 @@ void CAppMain::Init(const HWND hWnd)
 	std::vector<VkExtensionProperties> deviceExtensionProperties(deviceExtensionsPropertiesCount);
 	result = vkEnumerateDeviceExtensionProperties(physicalDeviceGPU, nullptr, &deviceExtensionsPropertiesCount, deviceExtensionProperties.data());
 
-	// VkQueueFamilyProperties
-	uint32_t queueFamilyPropertiesCount = 0;
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDeviceGPU, &queueFamilyPropertiesCount, nullptr);
-	std::vector<VkQueueFamilyProperties> queueFamilyProperties(queueFamilyPropertiesCount);
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDeviceGPU, &queueFamilyPropertiesCount, queueFamilyProperties.data());
-
 	// VkPhysicalDeviceMemoryProperties
 	VkPhysicalDeviceMemoryProperties memProperties;
 	vkGetPhysicalDeviceMemoryProperties(physicalDeviceGPU, &memProperties);
@@ -360,7 +380,6 @@ void CAppMain::Init(const HWND hWnd)
 			break;
 		}
 	}
-
 	// find device local memory type index
 	uint32_t memoryHostVisibleTypeIndex = UINT32_MAX;
 	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
@@ -369,6 +388,12 @@ void CAppMain::Init(const HWND hWnd)
 			break;
 		}
 	}
+
+	// VkQueueFamilyProperties
+	uint32_t queueFamilyPropertiesCount = 0;
+	vkGetPhysicalDeviceQueueFamilyProperties(physicalDeviceGPU, &queueFamilyPropertiesCount, nullptr);
+	std::vector<VkQueueFamilyProperties> queueFamilyProperties(queueFamilyPropertiesCount);
+	vkGetPhysicalDeviceQueueFamilyProperties(physicalDeviceGPU, &queueFamilyPropertiesCount, queueFamilyProperties.data());
 
 	// get graphics queue family property index
 	uint32_t queueFamilyPropertieIndexGraphics = MAXUINT32;
@@ -512,16 +537,6 @@ void CAppMain::Init(const HWND hWnd)
 	deviceCreateInfo.pEnabledFeatures = &physicalDeviceFeaturesGPU;
 	result = vkCreateDevice(physicalDeviceGPU, &deviceCreateInfo, nullptr, &mDevice);
 
-	// VkDeviceMemory
-	VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
-
-	// VkMemoryAllocateInfo
-	VkMemoryAllocateInfo memoryAllocateInfo {};
-	memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	memoryAllocateInfo.allocationSize = 1024 * 1024;
-	memoryAllocateInfo.memoryTypeIndex = 0;
-	result = vkAllocateMemory(mDevice, &memoryAllocateInfo, nullptr, &deviceMemory);
-
 	//////////////////////////////////////////////////////////////////////////
 	// Queues
 	//////////////////////////////////////////////////////////////////////////
@@ -593,11 +608,59 @@ void CAppMain::Init(const HWND hWnd)
 		result = vkCreateImageView(mDevice, &imageViewCreateInfo, nullptr, &imageView);
 		mSwapChainImageViews.push_back(imageView);
 	}
+	{
+		// VkImageCreateInfo
+		VkImageCreateInfo imageCreateInfo{};
+		imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageCreateInfo.pNext = VK_NULL_HANDLE;
+		imageCreateInfo.flags = 0;
+		imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageCreateInfo.format = VK_FORMAT_D24_UNORM_S8_UINT;
+		imageCreateInfo.extent.width = swapchainCreateInfoKHR.imageExtent.width;
+		imageCreateInfo.extent.height = swapchainCreateInfoKHR.imageExtent.height;
+		imageCreateInfo.extent.depth = 1;
+		imageCreateInfo.mipLevels = 1;
+		imageCreateInfo.arrayLayers = 1;
+		imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		imageCreateInfo.queueFamilyIndexCount = VK_QUEUE_FAMILY_IGNORED;
+		imageCreateInfo.pQueueFamilyIndices = nullptr;
+		imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		result = vkCreateImage(mDevice, &imageCreateInfo, nullptr, &mDepthStencilImage);
 
-	// mSwapChainFramebuffers
-	mSwapChainFramebuffers.reserve(swapChainImagesCount);
-	for (const auto& swapChainImageView : mSwapChainImageViews)
-		mSwapChainFramebuffers.push_back(CreateFramebuffer(mDevice, swapChainImageView, swapchainCreateInfoKHR.imageExtent));
+		// VkMemoryRequirements
+		VkMemoryRequirements memoryRequirements{};
+		vkGetImageMemoryRequirements(mDevice, mDepthStencilImage, &memoryRequirements);
+
+		// VkMemoryAllocateInfo
+		VkMemoryAllocateInfo memoryAllocateInfo{};
+		memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		memoryAllocateInfo.allocationSize = memoryRequirements.size;
+		memoryAllocateInfo.memoryTypeIndex = memoryDeviceLocalTypeIndex;
+		result = vkAllocateMemory(mDevice, &memoryAllocateInfo, nullptr, &mDepthStencilImageMem);
+		result = vkBindImageMemory(mDevice, mDepthStencilImage, mDepthStencilImageMem, 0);
+
+		// VkImageViewCreateInfo
+		VkImageViewCreateInfo imageViewCreateInfo{};
+		imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		imageViewCreateInfo.pNext = VK_NULL_HANDLE;
+		imageViewCreateInfo.flags = 0;
+		imageViewCreateInfo.image = mDepthStencilImage;
+		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		imageViewCreateInfo.format = VK_FORMAT_D24_UNORM_S8_UINT;
+		imageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;;
+		imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+		imageViewCreateInfo.subresourceRange.levelCount = 1;
+		imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+		imageViewCreateInfo.subresourceRange.layerCount = 1;
+		result = vkCreateImageView(mDevice, &imageViewCreateInfo, nullptr, &mDepthStencilImageView);
+	}
 
 	//////////////////////////////////////////////////////////////////////////
 	// Pipeline
@@ -747,6 +810,11 @@ void CAppMain::Init(const HWND hWnd)
 
 	mRenderPass = CreateRenderPass(mDevice);
 
+	// mSwapChainFramebuffers
+	mSwapChainFramebuffers.reserve(swapChainImagesCount);
+	for (const auto& swapChainImageView : mSwapChainImageViews)
+		mSwapChainFramebuffers.push_back(CreateFramebuffer(mDevice, mRenderPass, swapChainImageView, mDepthStencilImageView, swapchainCreateInfoKHR.imageExtent));
+
 	// VkGraphicsPipelineCreateInfo
 	VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo = {};
 	graphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -803,6 +871,9 @@ void CAppMain::Destroy()
 	vkDestroyCommandPool(mDevice, mCommandPool, nullptr);
 	for (auto& swapChainFramebuffer : mSwapChainFramebuffers)
 		vkDestroyFramebuffer(mDevice, swapChainFramebuffer, nullptr);
+	vkDestroyImageView(mDevice, mDepthStencilImageView, nullptr);
+	vkFreeMemory(mDevice, mDepthStencilImageMem, nullptr);
+	vkDestroyImage(mDevice, mDepthStencilImage, nullptr);
 	//vkDestroyPipeline(mDevice, mGraphicsPipeline, nullptr);
 	vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
 	vkDestroyPipelineLayout(mDevice, mPipelineLayout, nullptr);
@@ -812,8 +883,8 @@ void CAppMain::Destroy()
 		vkDestroyImageView(mDevice, swapChainImageView, nullptr);
 	vkDestroySwapchainKHR(mDevice, mSwapChain, nullptr);
 	vkDestroyDevice(mDevice, nullptr);
-	if (fnDestroyDebugUtilsMessengerEXT)
-		fnDestroyDebugUtilsMessengerEXT(mInstance, mDebugUtilsMessengerEXT, nullptr);
+	if (fnDestroyDebugReportCallbackEXT)
+		fnDestroyDebugReportCallbackEXT(mInstance, mDebugReportCallbackEXT, nullptr);
 	vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
 	vkDestroyInstance(mInstance, nullptr);
 }
@@ -835,9 +906,6 @@ void CAppMain::Render()
 	// refill command buffer (RENDER CURRENT FRAME TO CURRENT FRAME BUFFER)
 	FillCommandBuffer(mCommandBuffer, mRenderPass, mSwapChainFramebuffers[imageIndex], extend2d);
 
-	// VkPipelineStageFlags
-	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-
 	// VkSubmitInfo
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -845,7 +913,7 @@ void CAppMain::Render()
 	submitInfo.pWaitSemaphores = &mImageAvailableSemaphore;
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = &mRenderFinishedSemaphore;
-	submitInfo.pWaitDstStageMask = waitStages;
+	submitInfo.pWaitDstStageMask = nullptr;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &mCommandBuffer;
 
@@ -896,15 +964,17 @@ void CAppMain::SetViewportSize(WORD viewportWidth, WORD viewportHeight)
 	mViewportHeight = viewportHeight;
 };
 
-// DebugCallback
-VKAPI_ATTR VkBool32 VKAPI_CALL CAppMain::DebugCallback(
-	VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
-	VkDebugUtilsMessageTypeFlagsEXT             messageType,
-	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-	void*                                       pUserData)
+// MyDebugReportCallback
+VKAPI_ATTR VkBool32 VKAPI_CALL CAppMain::MyDebugReportCallback(
+	VkDebugReportFlagsEXT flags,
+	VkDebugReportObjectTypeEXT objectType,
+	uint64_t object,
+	size_t location,
+	int32_t messageCode,
+	const char * pLayerPrefix,
+	const char * pMessage,
+	void * pUserData)
 {
-	//if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT)
-	std::cout << pCallbackData->pMessage << std::endl;
-
-	return VK_FALSE;
+	std::cerr << pMessage << std::endl;
+	return VK_TRUE;
 }

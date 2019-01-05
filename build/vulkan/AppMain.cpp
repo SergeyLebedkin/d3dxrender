@@ -25,7 +25,7 @@ void FillCommandBuffer(VkCommandBuffer commandBuffer, VkRenderPass renderPass, V
 	VkCommandBufferBeginInfo commandBufferBeginInfo = {};
 	commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	commandBufferBeginInfo.pNext = VK_NULL_HANDLE;
-	commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+	commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 	commandBufferBeginInfo.pInheritanceInfo = nullptr; // Optional
 	result = vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
 
@@ -138,7 +138,7 @@ VkFramebuffer CreateFramebuffer(VkDevice device, VkImageView imageView, VkExtent
 	framebufferCreateInfo.height = extent.height;
 	framebufferCreateInfo.layers = 1;
 	result = vkCreateFramebuffer(device, &framebufferCreateInfo, nullptr, &framebuffer);
-	
+
 	// return
 	return framebuffer;
 }
@@ -265,7 +265,7 @@ void CAppMain::Init(const HWND hWnd)
 	applicationInfo.pEngineName = "Vulkan Engine";
 	applicationInfo.engineVersion = 0;
 	applicationInfo.apiVersion = VK_API_VERSION_1_0;
-	
+
 	// VkInstanceCreateInfo
 	VkInstanceCreateInfo instanceCreateInfo = {};
 	instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -278,7 +278,7 @@ void CAppMain::Init(const HWND hWnd)
 	result = vkCreateInstance(&instanceCreateInfo, NULL, &mInstance);
 
 	//////////////////////////////////////////////////////////////////////////
-	// Vulkan Extentions
+	// Vulkan Extensions
 	//////////////////////////////////////////////////////////////////////////
 
 	// vkCreateDebugUtilsMessengerEXT and vkDestroyDebugUtilsMessengerEXT
@@ -316,7 +316,7 @@ void CAppMain::Init(const HWND hWnd)
 	VkPhysicalDeviceFeatures physicalDeviceFeaturesGPU;
 	VkPhysicalDeviceProperties physicalDevicePropertiesGPU;
 	for (const auto& physicalDevice : physicalDevices)
-	{	
+	{
 		VkPhysicalDeviceFeatures physicalDeviceFeatures;
 		VkPhysicalDeviceProperties physicalDeviceProperties;
 		vkGetPhysicalDeviceFeatures(physicalDevice, &physicalDeviceFeatures);
@@ -351,6 +351,24 @@ void CAppMain::Init(const HWND hWnd)
 	// VkPhysicalDeviceMemoryProperties
 	VkPhysicalDeviceMemoryProperties memProperties;
 	vkGetPhysicalDeviceMemoryProperties(physicalDeviceGPU, &memProperties);
+
+	// find device local memory type index
+	uint32_t memoryDeviceLocalTypeIndex = UINT32_MAX;
+	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+		if (memProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
+			memoryDeviceLocalTypeIndex = i;
+			break;
+		}
+	}
+
+	// find device local memory type index
+	uint32_t memoryHostVisibleTypeIndex = UINT32_MAX;
+	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+		if (memProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+			memoryHostVisibleTypeIndex = i;
+			break;
+		}
+	}
 
 	// get graphics queue family property index
 	uint32_t queueFamilyPropertieIndexGraphics = MAXUINT32;
@@ -494,6 +512,16 @@ void CAppMain::Init(const HWND hWnd)
 	deviceCreateInfo.pEnabledFeatures = &physicalDeviceFeaturesGPU;
 	result = vkCreateDevice(physicalDeviceGPU, &deviceCreateInfo, nullptr, &mDevice);
 
+	// VkDeviceMemory
+	VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
+
+	// VkMemoryAllocateInfo
+	VkMemoryAllocateInfo memoryAllocateInfo {};
+	memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	memoryAllocateInfo.allocationSize = 1024 * 1024;
+	memoryAllocateInfo.memoryTypeIndex = 0;
+	result = vkAllocateMemory(mDevice, &memoryAllocateInfo, nullptr, &deviceMemory);
+
 	//////////////////////////////////////////////////////////////////////////
 	// Queues
 	//////////////////////////////////////////////////////////////////////////
@@ -522,12 +550,12 @@ void CAppMain::Init(const HWND hWnd)
 	swapchainCreateInfoKHR.imageExtent = surfaceCapabilitiesKHR.currentExtent;
 	swapchainCreateInfoKHR.imageArrayLayers = 1;
 	swapchainCreateInfoKHR.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	swapchainCreateInfoKHR.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+	swapchainCreateInfoKHR.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	swapchainCreateInfoKHR.queueFamilyIndexCount = (uint32_t)queueFamilyIndices.size();
 	swapchainCreateInfoKHR.pQueueFamilyIndices = queueFamilyIndices.data();
 	swapchainCreateInfoKHR.preTransform = surfaceCapabilitiesKHR.currentTransform;
 	swapchainCreateInfoKHR.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	swapchainCreateInfoKHR.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+	swapchainCreateInfoKHR.presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
 	swapchainCreateInfoKHR.clipped = VK_TRUE;
 	swapchainCreateInfoKHR.oldSwapchain = VK_NULL_HANDLE;
 	result = vkCreateSwapchainKHR(mDevice, &swapchainCreateInfoKHR, nullptr, &mSwapChain);
@@ -733,7 +761,7 @@ void CAppMain::Init(const HWND hWnd)
 	graphicsPipelineCreateInfo.pMultisampleState = &multisampling;
 	graphicsPipelineCreateInfo.pDepthStencilState = nullptr; // Optional
 	graphicsPipelineCreateInfo.pColorBlendState = &colorBlending;
-	graphicsPipelineCreateInfo.pDynamicState = nullptr; // Optional
+	graphicsPipelineCreateInfo.pDynamicState = &dynamicState; // Optional
 	graphicsPipelineCreateInfo.layout = mPipelineLayout;
 	graphicsPipelineCreateInfo.renderPass = mRenderPass;
 	graphicsPipelineCreateInfo.subpass = 0;
@@ -807,16 +835,16 @@ void CAppMain::Render()
 	// refill command buffer (RENDER CURRENT FRAME TO CURRENT FRAME BUFFER)
 	FillCommandBuffer(mCommandBuffer, mRenderPass, mSwapChainFramebuffers[imageIndex], extend2d);
 
-	// VkSubmitInfo
-	VkSemaphore waitSemaphores[] = { mImageAvailableSemaphore };
-	VkSemaphore signalSemaphores[] = { mRenderFinishedSemaphore };
+	// VkPipelineStageFlags
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	VkSubmitInfo submitInfo = {};
+
+	// VkSubmitInfo
+	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pWaitSemaphores = waitSemaphores;
+	submitInfo.pWaitSemaphores = &mImageAvailableSemaphore;
 	submitInfo.signalSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = signalSemaphores;
+	submitInfo.pSignalSemaphores = &mRenderFinishedSemaphore;
 	submitInfo.pWaitDstStageMask = waitStages;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &mCommandBuffer;
@@ -825,13 +853,12 @@ void CAppMain::Render()
 	result = vkQueueSubmit(mQueueGraphics, 1, &submitInfo, VK_NULL_HANDLE);
 
 	// VkPresentInfoKHR
-	VkPresentInfoKHR presentInfo = {};
-	VkSwapchainKHR swapChains[] = { mSwapChain };
+	VkPresentInfoKHR presentInfo{};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.waitSemaphoreCount = 1;
-	presentInfo.pWaitSemaphores = signalSemaphores;
+	presentInfo.pWaitSemaphores = &mRenderFinishedSemaphore;
 	presentInfo.swapchainCount = 1;
-	presentInfo.pSwapchains = swapChains;
+	presentInfo.pSwapchains = &mSwapChain;
 	presentInfo.pImageIndices = &imageIndex;
 	presentInfo.pResults = nullptr; // Optional
 	result = vkQueuePresentKHR(mQueuePresent, &presentInfo);
@@ -876,8 +903,8 @@ VKAPI_ATTR VkBool32 VKAPI_CALL CAppMain::DebugCallback(
 	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void*                                       pUserData)
 {
-	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT)
-		std::cout << pCallbackData->pMessage << std::endl;
+	//if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT)
+	std::cout << pCallbackData->pMessage << std::endl;
 
 	return VK_FALSE;
 }

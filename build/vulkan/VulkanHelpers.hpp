@@ -9,6 +9,18 @@
 #define VK_CHECK(func)
 #endif
 
+// BufferMemoryHandle
+struct BufferMemoryHandle {
+	VkBuffer buffer = VK_NULL_HANDLE;
+	VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
+};
+
+// ImageMemoryHandle
+struct ImageMemoryHandle {
+	VkImage image = VK_NULL_HANDLE;
+	VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
+};
+
 // InitDeviceQueueCreateInfo
 VkDeviceQueueCreateInfo InitDeviceQueueCreateInfo(uint32_t queueIndex);
 

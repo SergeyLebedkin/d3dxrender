@@ -409,7 +409,7 @@ VkShaderModule CreateShaderModuleFromFile(VkDevice device, const char* fileName)
 	assert(fileSize > 0);
 
 	// read data and close
-	std::vector<char> code(fileSize);
+	std::vector<char> code((size_t)fileSize);
 	file.seekg(0, std::ios::beg);
 	file.read(code.data(), fileSize);
 	file.close();
@@ -792,7 +792,7 @@ void InitVulkanDebug(VkInstance instance)
 	callbackCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
 	callbackCreateInfo.pNext = nullptr;
 	callbackCreateInfo.flags =
-		//VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
+		VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
 		VK_DEBUG_REPORT_WARNING_BIT_EXT |
 		VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
 		VK_DEBUG_REPORT_ERROR_BIT_EXT |

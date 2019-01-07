@@ -39,6 +39,9 @@ private:
 	VkSemaphore                  mImageAvailableSemaphore;
 	VkSemaphore                  mRenderFinishedSemaphore;
 
+	BufferMemoryHandle           mVertexBuffer;
+	BufferMemoryHandle           mIndexBuffer;
+
 	// scene variables
 	DirectX::XMMATRIX mWVP;
 public:

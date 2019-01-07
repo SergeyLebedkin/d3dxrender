@@ -49,8 +49,9 @@ void FillCommandBuffer(VkCommandBuffer commandBuffer, VkPipeline graphicsPipelin
 	// GO RENDER
 	vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-	//vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0);
-	//vkCmdBindVertexBuffers(commandBuffer, 0, 0, vertexBuffer, VK_NULL_HANDLE);
+	//vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+	//vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, VK_NULL_HANDLE);
+	//vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
 	vkCmdEndRenderPass(commandBuffer);
 
 	// vkEndCommandBuffer
@@ -198,10 +199,6 @@ void CAppMain::Init(const HWND hWnd)
 	vkGetDeviceQueue(mDevice, queueFamilyPropertieIndexCompute, 0, &mQueueCompute);
 	vkGetDeviceQueue(mDevice, queueFamilyPropertieIndexTransfer, 0, &mQueueTransfer);
 	vkGetDeviceQueue(mDevice, queueFamilyPropertieIndexPresent, 0, &mQueuePresent);
-
-	//////////////////////////////////////////////////////////////////////////
-	// SwapChain
-	//////////////////////////////////////////////////////////////////////////
 
 	// VkSwapchainKHR
 	mSwapChain = CreateSwapchain(mDevice, mSurface, mSurfaceFormat, mPresentMode, surfaceCapabilitiesKHR.minImageCount, mViewportWidth, mViewportHeight);

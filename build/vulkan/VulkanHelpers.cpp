@@ -5,6 +5,276 @@
 #include <vector>
 #include <array>
 
+//////////////////////////////////////////////////////////////////////////
+// VulkanDeviceInfo
+//////////////////////////////////////////////////////////////////////////
+
+// Initialize
+void VulkanDeviceInfo::Initialize(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
+	VkPhysicalDeviceFeatures& physicalDeviceFeatures,
+	std::vector<const char *>& enabledDeviceExtensionNames) 
+{
+	// store parameters
+	this->physicalDevice = physicalDevice;
+	this->surface = surface;
+
+	// VkPhysicalDeviceMemoryProperties
+	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &this->deviceMemoryProperties);
+	vkGetPhysicalDeviceFeatures(physicalDevice, &deviceFeatures);
+	vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
+
+	// get queue family properties count
+	uint32_t queueFamilyPropertiesCount = 0;
+	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertiesCount, nullptr);
+	assert(queueFamilyPropertiesCount);
+	// get queue family properties list
+	queueFamilyProperties.resize(queueFamilyPropertiesCount);
+	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertiesCount, queueFamilyProperties.data());
+
+	// get surface formats count
+	uint32_t formatsCount = 0;
+	vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatsCount, nullptr);
+	assert(formatsCount);
+	// get surface formats list
+	surfaceFormats.resize(formatsCount);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatsCount, surfaceFormats.data());
+
+	// get present modes count
+	uint32_t presentModesCount = 0;
+	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModesCount, nullptr);
+	assert(presentModesCount);
+	// get present modes list
+	presentModes.resize(presentModesCount);
+	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModesCount, presentModes.data());
+
+	// find device local memory type index
+	memoryDeviceLocalTypeIndex = FindMemoryHeapIndexByFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	memoryHostVisibleTypeIndex = FindMemoryHeapIndexByFlags(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	// get graphics, queue and transfer queue family property index
+	queueFamilyIndexGraphics = FindQueueFamilyIndexByFlags(VK_QUEUE_GRAPHICS_BIT);
+	queueFamilyIndexCompute = FindQueueFamilyIndexByFlags(VK_QUEUE_COMPUTE_BIT);
+	queueFamilyIndexTransfer = FindQueueFamilyIndexByFlags(VK_QUEUE_TRANSFER_BIT);
+
+	// deviceQueueCreateInfos
+	std::vector<VkDeviceQueueCreateInfo> deviceQueueCreateInfos;
+
+	// VkDeviceQueueCreateInfo - graphics
+	VkDeviceQueueCreateInfo deviceQueueCreateInfoGraphics = InitDeviceQueueCreateInfo(queueFamilyIndexGraphics);
+	deviceQueueCreateInfos.push_back(deviceQueueCreateInfoGraphics);
+
+	// VkDeviceQueueCreateInfo - compute
+	VkDeviceQueueCreateInfo deviceQueueCreateInfoCompute = InitDeviceQueueCreateInfo(queueFamilyIndexCompute);
+	if (queueFamilyIndexGraphics != queueFamilyIndexCompute)
+		deviceQueueCreateInfos.push_back(deviceQueueCreateInfoCompute);
+
+	// VkDeviceQueueCreateInfo - transfer
+	VkDeviceQueueCreateInfo deviceQueueCreateInfoTransfer = InitDeviceQueueCreateInfo(queueFamilyIndexTransfer);
+	if (queueFamilyIndexGraphics != queueFamilyIndexTransfer)
+		deviceQueueCreateInfos.push_back(deviceQueueCreateInfoTransfer);
+
+	// VkDeviceQueueCreateInfo - present
+	VkDeviceQueueCreateInfo deviceQueueCreateInfoPresent = InitDeviceQueueCreateInfo(queueFamilyIndexPresent);
+	if (queueFamilyIndexGraphics != queueFamilyIndexPresent)
+		deviceQueueCreateInfos.push_back(deviceQueueCreateInfoPresent);
+
+	// VkDevice
+	device = CreateDevice(physicalDevice, deviceQueueCreateInfos, enabledDeviceExtensionNames, physicalDeviceFeatures);
+	assert(device);
+
+	// vkGetDeviceQueue
+	vkGetDeviceQueue(device, queueFamilyIndexGraphics, 0, &queueGraphics);
+	vkGetDeviceQueue(device, queueFamilyIndexCompute, 0, &queueCompute);
+	vkGetDeviceQueue(device, queueFamilyIndexTransfer, 0, &queueTransfer);
+	vkGetDeviceQueue(device, queueFamilyIndexPresent, 0, &queuePresent);
+}
+
+// DeInitialize
+void VulkanDeviceInfo::DeInitialize()
+{
+	vkDestroyDevice(device, VK_NULL_HANDLE);
+	device = VK_NULL_HANDLE;
+}
+
+// FindMemoryHeapIndexByFlags
+uint32_t VulkanDeviceInfo::FindMemoryHeapIndexByFlags(uint32_t propertyFlags) const
+{
+	// find device local memory type index
+	for (uint32_t i = 0; i < deviceMemoryProperties.memoryTypeCount; i++)
+		if ((deviceMemoryProperties.memoryTypes[i].propertyFlags & propertyFlags) == propertyFlags)
+			return i;
+	assert(0);
+	// return default
+	return UINT32_MAX;
+}
+
+// FindQueueFamilyIndexByFlags
+uint32_t VulkanDeviceInfo::FindQueueFamilyIndexByFlags(uint32_t queueFlags) const
+{
+	// get graphics queue family property index
+	for (uint32_t i = 0; i < queueFamilyProperties.size(); i++)
+		if ((queueFamilyProperties[i].queueFlags & queueFlags) == queueFlags)
+			return i;
+	assert(0);
+	// return default
+	return UINT32_MAX;
+}
+
+// FindPresentQueueFamilyIndex
+uint32_t VulkanDeviceInfo::FindPresentQueueFamilyIndex() const
+{
+	// find presentation queue family property index
+	for (uint32_t i = 0; i < queueFamilyProperties.size(); i++)
+	{
+		// get present queue family property index
+		VkBool32 presentSupport = false;
+		vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport);
+		if (presentSupport)
+			return i;
+	}
+	assert(0);
+	// return default
+	return MAXUINT32;
+}
+
+// FindSurfaceFormat
+VkSurfaceFormatKHR VulkanDeviceInfo::FindSurfaceFormat() const
+{
+	// get default surface format
+	if ((surfaceFormats.size() == 1) && (surfaceFormats[0].format == VK_FORMAT_UNDEFINED)) {
+		VkSurfaceFormatKHR format;
+		format.format = VK_FORMAT_R8G8B8A8_SNORM;
+		format.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+		return format;
+	};
+
+	// try to find HDR format
+	for (const auto& surfaceFormat : surfaceFormats)
+		if ((surfaceFormat.format == VK_FORMAT_A2R10G10B10_SNORM_PACK32) || (surfaceFormat.format == VK_FORMAT_A2B10G10R10_SNORM_PACK32))
+			return surfaceFormat;
+
+	// try to find standard format
+	for (const auto& surfaceFormat : surfaceFormats)
+		if ((surfaceFormat.format == VK_FORMAT_R8G8B8A8_SNORM) || (surfaceFormat.format == VK_FORMAT_B8G8R8_SNORM))
+			return surfaceFormat;
+
+	// return default
+	return surfaceFormats[0];
+}
+
+// FindPresentMode()
+VkPresentModeKHR VulkanDeviceInfo::FindPresentMode() const
+{
+	// try to find MAILBOX mode
+	for (const auto& presentMode : presentModes)
+		if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+			return presentMode;
+
+	// try to find FIFO mode
+	for (const auto& presentMode : presentModes)
+		if (presentMode == VK_PRESENT_MODE_FIFO_KHR)
+			return presentMode;
+
+	// return default
+	return presentModes[0];
+}
+
+//////////////////////////////////////////////////////////////////////////
+// VulkanSwapchainInfo
+//////////////////////////////////////////////////////////////////////////
+
+// Initialize
+void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface)
+{
+	// store parameters
+	this->device = deviceInfo.device;
+	this->surface = surface;
+
+	// get parameters
+	presentMode = deviceInfo.FindPresentMode();
+	surfaceFormat = deviceInfo.FindSurfaceFormat();
+
+	// VkSurfaceCapabilitiesKHR
+	VkSurfaceCapabilitiesKHR surfaceCapabilitiesKHR;
+	VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(deviceInfo.physicalDevice, surface, &surfaceCapabilitiesKHR));
+	viewportWidth = surfaceCapabilitiesKHR.currentExtent.width;
+	viewportHeight = surfaceCapabilitiesKHR.currentExtent.height;
+
+	renderPass = CreateRenderPass(device);
+	assert(renderPass);
+
+	// VkSwapchainKHR
+	swapchain = CreateSwapchain(deviceInfo.device, surface, surfaceFormat, presentMode, surfaceCapabilitiesKHR.minImageCount, viewportWidth, viewportHeight);
+	assert(swapchain);
+
+	// swapChainImages
+	uint32_t imageColorsCount = 0;
+	vkGetSwapchainImagesKHR(device, swapchain, &imageColorsCount, nullptr);
+	imageColors.resize(imageColorsCount);
+	vkGetSwapchainImagesKHR(device, swapchain, &imageColorsCount, imageColors.data());
+
+	// mSwapChainImageViews
+	imageViewColors.reserve(imageColorsCount);
+	for (const auto& imageColor : imageColors) {
+		// create image view
+		VkImageView imageView = CreateImageView(device, imageColor, surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT);
+		assert(imageView);
+
+		// add image view
+		imageViewColors.push_back(imageView);
+	}
+
+	// VkImage
+	imageDepthStencil = CreateImage(device, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, viewportWidth, viewportHeight);
+	assert(imageDepthStencil);
+
+	{
+		// VkMemoryRequirements
+		VkMemoryRequirements memoryRequirements{};
+		vkGetImageMemoryRequirements(device, imageDepthStencil, &memoryRequirements);
+
+		// VkMemoryAllocateInfo
+		VkMemoryAllocateInfo memoryAllocateInfo{};
+		memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		memoryAllocateInfo.allocationSize =  memoryRequirements.size;
+		memoryAllocateInfo.memoryTypeIndex = deviceInfo.memoryDeviceLocalTypeIndex;
+		VK_CHECK(vkAllocateMemory(device, &memoryAllocateInfo, nullptr, &memoryDepthStencil));
+		VK_CHECK(vkBindImageMemory(device, imageDepthStencil, memoryDepthStencil, 0));
+	}
+
+	// VkImageView
+	imageViewDepthStencil = CreateImageView(device, imageDepthStencil, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+	assert(imageViewDepthStencil);
+
+	// create framebuffers
+	framebuffers.reserve(imageColorsCount);
+	for (const auto& imageViewColor : imageViewColors) {
+		// create framebuffer
+		std::vector<VkImageView> imageViews = { imageViewColor, imageViewDepthStencil };
+		VkFramebuffer framebuffer = CreateFramebuffer(device, renderPass, imageViews, viewportWidth, viewportWidth);
+		assert(framebuffer);
+
+		// add framebuffer
+		framebuffers.push_back(framebuffer);
+	}
+}
+
+// DeInitialize
+void VulkanSwapchainInfo::DeInitialize()
+{
+}
+
+// ReInitialize
+void VulkanSwapchainInfo::ReInitialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface)
+{
+	DeInitialize();
+	Initialize(deviceInfo, surface);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Utilities
+//////////////////////////////////////////////////////////////////////////
+
 // InitDeviceQueueCreateInfo
 VkDeviceQueueCreateInfo InitDeviceQueueCreateInfo(uint32_t queueIndex)
 {
@@ -62,125 +332,6 @@ VkPhysicalDevice FindPhysicalDevice(VkInstance instance, VkPhysicalDeviceType ph
 		}
 	}
 	return VK_NULL_HANDLE;
-}
-
-// FindPhysicalDeviceMemoryIndex
-uint32_t FindPhysicalDeviceMemoryIndex(VkPhysicalDevice physicalDevice, uint32_t propertyFlags)
-{
-	// VkPhysicalDeviceMemoryProperties
-	VkPhysicalDeviceMemoryProperties memProperties;
-	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-
-	// find device local memory type index
-	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-		if ((memProperties.memoryTypes[i].propertyFlags & propertyFlags) == propertyFlags)
-			return i;
-
-	// return default
-	return ~0U;
-}
-// FindPhysicalDeviceFamilyQueueIndex
-uint32_t FindPhysicalDeviceQueueFamilyIndex(VkPhysicalDevice physicalDevice, uint32_t queueFlags)
-{
-	// VkQueueFamilyProperties
-	uint32_t queueFamilyPropertiesCount = 0;
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertiesCount, nullptr);
-	std::vector<VkQueueFamilyProperties> queueFamilyProperties(queueFamilyPropertiesCount);
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertiesCount, queueFamilyProperties.data());
-
-	// get graphics queue family property index
-	for (uint32_t i = 0; i < queueFamilyProperties.size(); i++)
-		if ((queueFamilyProperties[i].queueFlags & queueFlags) == queueFlags)
-			return i;
-
-	// return default
-	return ~0U;
-}
-
-// FindSurfaceFormat
-VkSurfaceFormatKHR FindSurfaceFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface)
-{
-	// get surface formats count
-	uint32_t formatsCount = 0;
-	vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatsCount, nullptr);
-
-	assert(formatsCount > 0);
-
-	// get surface formats list
-	std::vector<VkSurfaceFormatKHR> surfaceFormats(formatsCount);
-	vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatsCount, surfaceFormats.data());
-
-	// get default surface format
-	if ((formatsCount == 1) && (surfaceFormats[0].format == VK_FORMAT_UNDEFINED)) {
-		VkSurfaceFormatKHR format;
-		format.format = VK_FORMAT_R8G8B8A8_SNORM;
-		format.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-		return format;
-	};
-
-	// try to find HDR format
-	for (const auto& surfaceFormat : surfaceFormats)
-		if ((surfaceFormat.format == VK_FORMAT_A2R10G10B10_SNORM_PACK32) || (surfaceFormat.format == VK_FORMAT_A2B10G10R10_SNORM_PACK32))
-			return surfaceFormat;
-
-	// try to find standard format
-	for (const auto& surfaceFormat : surfaceFormats)
-		if ((surfaceFormat.format == VK_FORMAT_R8G8B8A8_SNORM) || (surfaceFormat.format == VK_FORMAT_B8G8R8_SNORM))
-			return surfaceFormat;
-	
-	// return default
-	return surfaceFormats[0];
-}
-
-// FindPresentMode
-VkPresentModeKHR FindPresentMode(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface)
-{
-	// get present modes count
-	uint32_t presentModesCount = 0;
-	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModesCount, nullptr);
-
-	assert(presentModesCount > 0);
-
-	// get present modes list
-	std::vector<VkPresentModeKHR> presentModes(presentModesCount);
-	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModesCount, presentModes.data());
-
-	// try to find mailbox mode
-	for (const auto& presentMode : presentModes)
-		if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
-			return presentMode;
-
-	// try to find fifo mode
-	for (const auto& presentMode : presentModes)
-		if (presentMode == VK_PRESENT_MODE_FIFO_KHR)
-			return presentMode;
-
-	// return defualt
-	return presentModes[0];
-}
-
-// FindPresentQueueMode
-uint32_t FindPresentQueueMode(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface)
-{
-	// VkQueueFamilyProperties
-	uint32_t queueFamilyPropertiesCount = 0;
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertiesCount, nullptr);
-	std::vector<VkQueueFamilyProperties> queueFamilyProperties(queueFamilyPropertiesCount);
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertiesCount, queueFamilyProperties.data());
-
-	// find presentation queue family property index
-	uint32_t queueFamilyPropertieIndexPresent = MAXUINT32;
-	for (uint32_t i = 0; i < queueFamilyProperties.size(); i++)
-	{
-		// get present queue family property index
-		VkBool32 presentSupport = false;
-		vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport);
-		if (presentSupport)
-			return i;
-	}
-
-	// return default
-	return ~0U;
 }
 
 // CreateInstance

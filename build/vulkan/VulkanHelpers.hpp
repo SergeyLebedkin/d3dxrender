@@ -21,6 +21,88 @@ struct ImageMemoryHandle {
 	VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
 };
 
+// VulkanDeviceInfo
+struct VulkanDeviceInfo 
+{
+public:
+	// base handles
+	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+	VkSurfaceKHR     surface = VK_NULL_HANDLE;
+	VkDevice         device = VK_NULL_HANDLE;
+
+	// properties
+	VkPhysicalDeviceFeatures             deviceFeatures;
+	VkPhysicalDeviceProperties           deviceProperties;
+	VkPhysicalDeviceMemoryProperties     deviceMemoryProperties;
+	std::vector<VkQueueFamilyProperties> queueFamilyProperties{};
+	std::vector<VkSurfaceFormatKHR>      surfaceFormats{};
+	std::vector<VkPresentModeKHR>        presentModes{};
+
+	// memory type indexes
+	uint32_t memoryDeviceLocalTypeIndex = UINT32_MAX;
+	uint32_t memoryHostVisibleTypeIndex = UINT32_MAX;
+
+	// queue family indexes
+	uint32_t queueFamilyIndexGraphics = UINT32_MAX;
+	uint32_t queueFamilyIndexCompute = UINT32_MAX;
+	uint32_t queueFamilyIndexTransfer = UINT32_MAX;
+	uint32_t queueFamilyIndexPresent = UINT32_MAX;
+
+	// queues
+	VkQueue queueGraphics = VK_NULL_HANDLE;
+	VkQueue queueCompute = VK_NULL_HANDLE;
+	VkQueue queueTransfer = VK_NULL_HANDLE;
+	VkQueue queuePresent = VK_NULL_HANDLE;
+
+	// Init/DeInit functions
+	void Initialize(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
+		VkPhysicalDeviceFeatures& physicalDeviceFeatures,
+		std::vector<const char *>& enabledDeviceExtensionNames);
+	void DeInitialize();
+
+	// find functions
+	uint32_t FindMemoryHeapIndexByFlags(uint32_t propertyFlags) const;
+	uint32_t FindQueueFamilyIndexByFlags(uint32_t queueFlags) const;
+	uint32_t FindPresentQueueFamilyIndex() const;
+	VkSurfaceFormatKHR FindSurfaceFormat() const;
+	VkPresentModeKHR FindPresentMode() const;
+};
+
+// VulkanSwapchainInfo
+struct VulkanSwapchainInfo
+{
+private:
+	// base handles
+	VkDevice     device = VK_NULL_HANDLE;
+	VkSurfaceKHR surface = VK_NULL_HANDLE;
+public:
+	// swapchain
+	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+
+	// viewport size
+	uint32_t viewportWidth = UINT32_MAX;
+	uint32_t viewportHeight = UINT32_MAX;
+
+	// framebuffer formats
+	VkSurfaceFormatKHR surfaceFormat{};
+	VkFormat           depthStencilFormat = VK_FORMAT_D24_UNORM_S8_UINT;
+	VkPresentModeKHR   presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+
+	// framebuffer data
+	VkRenderPass               renderPass = VK_NULL_HANDLE;
+	VkImage                    imageDepthStencil = VK_NULL_HANDLE;
+	VkImageView                imageViewDepthStencil = VK_NULL_HANDLE;
+	VkDeviceMemory             memoryDepthStencil = VK_NULL_HANDLE;
+	std::vector<VkImage>       imageColors{};
+	std::vector<VkImageView>   imageViewColors{};
+	std::vector<VkFramebuffer> framebuffers{};
+	
+	// Init/DeInit functions
+	void Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface);
+	void DeInitialize();
+	void ReInitialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface);
+};
+
 // InitDeviceQueueCreateInfo
 VkDeviceQueueCreateInfo InitDeviceQueueCreateInfo(uint32_t queueIndex);
 

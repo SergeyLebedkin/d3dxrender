@@ -113,6 +113,13 @@ void CAppMain::Init(const HWND hWnd)
 		VK_KHR_SURFACE_EXTENSION_NAME,
 	};
 
+	// extensions
+	std::vector<const char *> enabledDeviceExtensionNames = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+
+	// VkPhysicalDeviceFeatures
+	VkPhysicalDeviceFeatures physicalDeviceFeatures{};
+	physicalDeviceFeatures.samplerAnisotropy = VK_TRUE;
+
 	// CreateInstance
 	mInstance = CreateInstance("Vulkan app", VK_MAKE_VERSION(1, 0, 1), "Vulkan Engine", VK_MAKE_VERSION(1, 0, 1), enabledInstanceLayerNames, enabledInstanceExtensionNames, VK_API_VERSION_1_1);
 	assert(mInstance);
@@ -120,142 +127,23 @@ void CAppMain::Init(const HWND hWnd)
 	// InitVulkanDebug
 	InitVulkanDebug(mInstance);
 
-	// VkPhysicalDevice
-	VkPhysicalDevice physicalDeviceGPU = FindPhysicalDevice(mInstance, VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU);
-
-	// VkPhysicalDeviceMemoryProperties
-	VkPhysicalDeviceMemoryProperties memProperties;
-	vkGetPhysicalDeviceMemoryProperties(physicalDeviceGPU, &memProperties);
-
-	// find device local memory type index
-	uint32_t memoryDeviceLocalTypeIndex = FindPhysicalDeviceMemoryIndex(physicalDeviceGPU, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	uint32_t memoryHostVisibleTypeIndex = FindPhysicalDeviceMemoryIndex(physicalDeviceGPU, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-	// VkQueueFamilyProperties
-	uint32_t queueFamilyPropertiesCount = 0;
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDeviceGPU, &queueFamilyPropertiesCount, nullptr);
-	std::vector<VkQueueFamilyProperties> queueFamilyProperties(queueFamilyPropertiesCount);
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDeviceGPU, &queueFamilyPropertiesCount, queueFamilyProperties.data());
-
-	// get graphics, queue and transfer queue family property index
-	uint32_t queueFamilyPropertieIndexGraphics = FindPhysicalDeviceQueueFamilyIndex(physicalDeviceGPU, VK_QUEUE_GRAPHICS_BIT);
-	uint32_t queueFamilyPropertieIndexCompute = FindPhysicalDeviceQueueFamilyIndex(physicalDeviceGPU, VK_QUEUE_COMPUTE_BIT);
-	uint32_t queueFamilyPropertieIndexTransfer = FindPhysicalDeviceQueueFamilyIndex(physicalDeviceGPU, VK_QUEUE_TRANSFER_BIT);
-
 	// VkSurface
 	mSurface = CreateSurface(mInstance, hWnd);
 	assert(mSurface);
 
-	// VkSurfaceCapabilitiesKHR
-	VkSurfaceCapabilitiesKHR surfaceCapabilitiesKHR;
-	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDeviceGPU, mSurface, &surfaceCapabilitiesKHR);
-	mViewportWidth = surfaceCapabilitiesKHR.currentExtent.width;
-	mViewportHeight = surfaceCapabilitiesKHR.currentExtent.height;
+	// VkPhysicalDevice
+	VkPhysicalDevice physicalDevice = FindPhysicalDevice(mInstance, VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU);
+	assert(physicalDevice);
 
-	// VkSurfaceFormatKHR
-	mSurfaceFormat = FindSurfaceFormat(physicalDeviceGPU, mSurface);
+	// VulkanDeviceInfo
+	VulkanDeviceInfo deviceInfo;
+	deviceInfo.Initialize(physicalDevice, mSurface, physicalDeviceFeatures, enabledDeviceExtensionNames);
+	assert(deviceInfo.device);
 
-	// VkPresentModeKHR
-	mPresentMode = FindPresentMode(physicalDeviceGPU, mSurface);
-
-	// find presentation queue family property index
-	uint32_t queueFamilyPropertieIndexPresent = FindPresentQueueMode(physicalDeviceGPU, mSurface);
-
-	// deviceQueueCreateInfos
-	std::vector<VkDeviceQueueCreateInfo> deviceQueueCreateInfos;
-
-	// VkDeviceQueueCreateInfo - graphics
-	VkDeviceQueueCreateInfo deviceQueueCreateInfoGraphics = InitDeviceQueueCreateInfo(queueFamilyPropertieIndexGraphics);
-	deviceQueueCreateInfos.push_back(deviceQueueCreateInfoGraphics);
-
-	// VkDeviceQueueCreateInfo - compute
-	VkDeviceQueueCreateInfo deviceQueueCreateInfoCompute = InitDeviceQueueCreateInfo(queueFamilyPropertieIndexCompute);
-	if (queueFamilyPropertieIndexGraphics != queueFamilyPropertieIndexCompute)
-		deviceQueueCreateInfos.push_back(deviceQueueCreateInfoCompute);
-
-	// VkDeviceQueueCreateInfo - transfer
-	VkDeviceQueueCreateInfo deviceQueueCreateInfoTransfer = InitDeviceQueueCreateInfo(queueFamilyPropertieIndexTransfer);
-	if (queueFamilyPropertieIndexGraphics != queueFamilyPropertieIndexTransfer)
-		deviceQueueCreateInfos.push_back(deviceQueueCreateInfoTransfer);
-
-	// VkDeviceQueueCreateInfo - present
-	VkDeviceQueueCreateInfo deviceQueueCreateInfoPresent = InitDeviceQueueCreateInfo(queueFamilyPropertieIndexPresent);
-	if (queueFamilyPropertieIndexGraphics != queueFamilyPropertieIndexPresent)
-		deviceQueueCreateInfos.push_back(deviceQueueCreateInfoPresent);
-
-	// VkPhysicalDeviceFeatures
-	VkPhysicalDeviceFeatures physicalDeviceFeatures{};
-	physicalDeviceFeatures.samplerAnisotropy = VK_TRUE;
-
-	// extentions
-	std::vector<const char *> enabledDeviceExtensionNames = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-
-	// VkDevice
-	mDevice = CreateDevice(physicalDeviceGPU, deviceQueueCreateInfos, enabledDeviceExtensionNames, physicalDeviceFeatures);
-	assert(mDevice);
-
-	// vkGetDeviceQueue
-	vkGetDeviceQueue(mDevice, queueFamilyPropertieIndexGraphics, 0, &mQueueGraphics);
-	vkGetDeviceQueue(mDevice, queueFamilyPropertieIndexCompute, 0, &mQueueCompute);
-	vkGetDeviceQueue(mDevice, queueFamilyPropertieIndexTransfer, 0, &mQueueTransfer);
-	vkGetDeviceQueue(mDevice, queueFamilyPropertieIndexPresent, 0, &mQueuePresent);
-
-	// VkSwapchainKHR
-	mSwapChain = CreateSwapchain(mDevice, mSurface, mSurfaceFormat, mPresentMode, surfaceCapabilitiesKHR.minImageCount, mViewportWidth, mViewportHeight);
-	assert(mSwapChain);
-
-	// swapChainImages
-	uint32_t swapChainImagesCount = 0;
-	vkGetSwapchainImagesKHR(mDevice, mSwapChain, &swapChainImagesCount, nullptr);
-	std::vector<VkImage> swapChainImages(swapChainImagesCount);
-	vkGetSwapchainImagesKHR(mDevice, mSwapChain, &swapChainImagesCount, swapChainImages.data());
-
-	// mSwapChainImageViews
-	mSwapChainImageViews = {};
-	for (const auto& swapChainImage : swapChainImages) {
-		// create image view
-		VkImageView imageView = CreateImageView(mDevice, swapChainImage, mSurfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT);
-		assert(imageView);
-
-		// add image view
-		mSwapChainImageViews.push_back(imageView);
-	}
-	
-	// VkImage
-	mDepthStencilImage = CreateImage(mDevice, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, mViewportWidth, mViewportHeight);
-	assert(mDepthStencilImage);
-
-	{
-		// VkMemoryRequirements
-		VkMemoryRequirements memoryRequirements{};
-		vkGetImageMemoryRequirements(mDevice, mDepthStencilImage, &memoryRequirements);
-
-		// VkMemoryAllocateInfo
-		VkMemoryAllocateInfo memoryAllocateInfo{};
-		memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		memoryAllocateInfo.allocationSize = memoryRequirements.size;
-		memoryAllocateInfo.memoryTypeIndex = memoryDeviceLocalTypeIndex;
-		VK_CHECK(vkAllocateMemory(mDevice, &memoryAllocateInfo, nullptr, &mDepthStencilImageMem));
-		VK_CHECK(vkBindImageMemory(mDevice, mDepthStencilImage, mDepthStencilImageMem, 0));
-	}
-
-	// VkImageView
-	mDepthStencilImageView = CreateImageView(mDevice, mDepthStencilImage, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
-	assert(mDepthStencilImageView);
-
-	mRenderPass = CreateRenderPass(mDevice);
-	assert(mRenderPass);
-
-	mSwapChainFramebuffers = {};
-	for (const auto& swapChainImageView : mSwapChainImageViews) {
-		// create framebuffer
-		std::vector<VkImageView> imageViews = { swapChainImageView, mDepthStencilImageView };
-		VkFramebuffer framebuffer = CreateFramebuffer(mDevice, mRenderPass, imageViews, mViewportWidth, mViewportWidth);
-		assert(framebuffer);
-
-		// add framebuffer
-		mSwapChainFramebuffers.push_back(framebuffer);
-	}
+	// VulkanSwapchainInfo
+	VulkanSwapchainInfo swapChainInfo;
+	swapChainInfo.Initialize(deviceInfo, mSurface);
+	assert(swapChainInfo.swapchain);
 
 	// VkVertexInputBindingDescription - vertexBindingDescriptions
 	std::vector<VkVertexInputBindingDescription> vertexBindingDescriptions{

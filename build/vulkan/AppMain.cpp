@@ -136,14 +136,15 @@ void CAppMain::Init(const HWND hWnd)
 	assert(physicalDevice);
 
 	// VulkanDeviceInfo
-	VulkanDeviceInfo deviceInfo;
-	deviceInfo.Initialize(physicalDevice, mSurface, physicalDeviceFeatures, enabledDeviceExtensionNames);
-	assert(deviceInfo.device);
+	mDeviceInfo.Initialize(physicalDevice, mSurface, physicalDeviceFeatures, enabledDeviceExtensionNames);
+	assert(mDeviceInfo.device);
+
+	mRenderPass = CreateRenderPass(mDeviceInfo.device);
+	assert(mRenderPass);
 
 	// VulkanSwapchainInfo
-	VulkanSwapchainInfo swapChainInfo;
-	swapChainInfo.Initialize(deviceInfo, mSurface);
-	assert(swapChainInfo.swapchain);
+	mSwapchainInfo.Initialize(mDeviceInfo, mSurface, mRenderPass);
+	assert(mSwapchainInfo.swapchain);
 
 	// VkVertexInputBindingDescription - vertexBindingDescriptions
 	std::vector<VkVertexInputBindingDescription> vertexBindingDescriptions{
@@ -160,51 +161,45 @@ void CAppMain::Init(const HWND hWnd)
 	// VkPipelineVertexInputStateCreateInfo
 	VkPipelineVertexInputStateCreateInfo vertexInputState = InitPipelineVertexInputStateCreateInfo(vertexBindingDescriptions, vertexAttributeDescriptions);
 
-	mShaderModuleVS = CreateShaderModuleFromFile(mDevice, "shaders/base.vert.spv");
+	mShaderModuleVS = CreateShaderModuleFromFile(mDeviceInfo.device, "shaders/base.vert.spv");
 	assert(mShaderModuleVS);
 
-	mShaderModuleFS = CreateShaderModuleFromFile(mDevice, "shaders/base.frag.spv");
+	mShaderModuleFS = CreateShaderModuleFromFile(mDeviceInfo.device, "shaders/base.frag.spv");
 	assert(mShaderModuleFS);
 
-	mPipelineLayout = CreatePipelineLayout(mDevice);
+	mPipelineLayout = CreatePipelineLayout(mDeviceInfo.device);
 	assert(mPipelineLayout);
 
-	mGraphicsPipeline = CreateGraphicsPipeline(mDevice, vertexInputState, mShaderModuleVS, mShaderModuleFS, mPipelineLayout, mRenderPass, mViewportWidth, mViewportHeight);
+	mGraphicsPipeline = CreateGraphicsPipeline(mDeviceInfo.device, vertexInputState, mShaderModuleVS, mShaderModuleFS, mPipelineLayout,
+		mRenderPass, mSwapchainInfo.viewportWidth, mSwapchainInfo.viewportWidth);
 	assert(mGraphicsPipeline);
 
-	mCommandPool = CreateCommandPool(mDevice, queueFamilyPropertieIndexGraphics);
+	mCommandPool = CreateCommandPool(mDeviceInfo.device, mDeviceInfo.queueFamilyIndexGraphics);
 	assert(mCommandPool);
 
-	mCommandBuffer = AllocateCommandBuffer(mDevice, mCommandPool);
+	mCommandBuffer = AllocateCommandBuffer(mDeviceInfo.device, mCommandPool);
 	assert(mCommandBuffer);
 
-	mImageAvailableSemaphore = CreateSemaphore(mDevice);
+	mImageAvailableSemaphore = CreateSemaphore(mDeviceInfo.device);
 	assert(mImageAvailableSemaphore);
 
-	mRenderFinishedSemaphore = CreateSemaphore(mDevice);
+	mRenderFinishedSemaphore = CreateSemaphore(mDeviceInfo.device);
 	assert(mRenderFinishedSemaphore);
+
+	mSwapchainInfo.ReInitialize(mDeviceInfo, mSurface, mRenderPass);
 }
 
 // Created SL-160225
 void CAppMain::Destroy()
 {
-	vkDestroySemaphore(mDevice, mRenderFinishedSemaphore, nullptr);
-	vkDestroySemaphore(mDevice, mImageAvailableSemaphore, nullptr);
-	vkDestroyCommandPool(mDevice, mCommandPool, nullptr);
-	for (auto& swapChainFramebuffer : mSwapChainFramebuffers)
-		vkDestroyFramebuffer(mDevice, swapChainFramebuffer, nullptr);
-	vkDestroyImageView(mDevice, mDepthStencilImageView, nullptr);
-	vkFreeMemory(mDevice, mDepthStencilImageMem, nullptr);
-	vkDestroyImage(mDevice, mDepthStencilImage, nullptr);
-	vkDestroyPipeline(mDevice, mGraphicsPipeline, nullptr);
-	vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
-	vkDestroyPipelineLayout(mDevice, mPipelineLayout, nullptr);
-	vkDestroyShaderModule(mDevice, mShaderModuleFS, nullptr);
-	vkDestroyShaderModule(mDevice, mShaderModuleVS, nullptr);
-	for (auto& swapChainImageView : mSwapChainImageViews)
-		vkDestroyImageView(mDevice, swapChainImageView, nullptr);
-	vkDestroySwapchainKHR(mDevice, mSwapChain, nullptr);
-	vkDestroyDevice(mDevice, nullptr);
+	vkDestroySemaphore(mDeviceInfo.device, mRenderFinishedSemaphore, nullptr);
+	vkDestroySemaphore(mDeviceInfo.device, mImageAvailableSemaphore, nullptr);
+	vkDestroyCommandPool(mDeviceInfo.device, mCommandPool, nullptr);
+	vkDestroyPipeline(mDeviceInfo.device, mGraphicsPipeline, nullptr);
+	vkDestroyPipelineLayout(mDeviceInfo.device, mPipelineLayout, nullptr);
+	vkDestroyShaderModule(mDeviceInfo.device, mShaderModuleFS, nullptr);
+	vkDestroyShaderModule(mDeviceInfo.device, mShaderModuleVS, nullptr);
+	vkDestroyRenderPass(mDeviceInfo.device, mRenderPass, nullptr);
 	vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
 	DeInitVulkanDebug(mInstance);
 	vkDestroyInstance(mInstance, nullptr);
@@ -214,18 +209,17 @@ void CAppMain::Destroy()
 void CAppMain::Render()
 {
 	uint32_t imageIndex = 0;
-	VkResult result = VK_SUCCESS;
 
 	// vkAcquireNextImageKHR
-	result = vkAcquireNextImageKHR(mDevice, mSwapChain, UINT64_MAX, mImageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+	VK_CHECK(vkAcquireNextImageKHR(mDeviceInfo.device, mSwapchainInfo.swapchain, UINT64_MAX, mImageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex));
 
 	// VkExtent2D
 	VkExtent2D extend2d;
-	extend2d.height = mViewportHeight;
-	extend2d.width = mViewportWidth;
+	extend2d.height = mSwapchainInfo.viewportHeight;
+	extend2d.width = mSwapchainInfo.viewportWidth;
 
 	// refill command buffer (RENDER CURRENT FRAME TO CURRENT FRAME BUFFER)
-	FillCommandBuffer(mCommandBuffer, mGraphicsPipeline, mRenderPass, mSwapChainFramebuffers[imageIndex], extend2d);
+	FillCommandBuffer(mCommandBuffer, mGraphicsPipeline, mRenderPass, mSwapchainInfo.framebuffers[imageIndex], extend2d);
 
 	// VkSubmitInfo
 	VkSubmitInfo submitInfo{};
@@ -239,7 +233,7 @@ void CAppMain::Render()
 	submitInfo.pCommandBuffers = &mCommandBuffer;
 
 	// vkQueueSubmit
-	result = vkQueueSubmit(mQueueGraphics, 1, &submitInfo, VK_NULL_HANDLE);
+	VK_CHECK(vkQueueSubmit(mDeviceInfo.queueGraphics, 1, &submitInfo, VK_NULL_HANDLE));
 
 	// VkPresentInfoKHR
 	VkPresentInfoKHR presentInfo{};
@@ -247,11 +241,11 @@ void CAppMain::Render()
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = &mRenderFinishedSemaphore;
 	presentInfo.swapchainCount = 1;
-	presentInfo.pSwapchains = &mSwapChain;
+	presentInfo.pSwapchains = &mSwapchainInfo.swapchain;
 	presentInfo.pImageIndices = &imageIndex;
 	presentInfo.pResults = nullptr; // Optional
-	result = vkQueuePresentKHR(mQueuePresent, &presentInfo);
-	result = vkQueueWaitIdle(mQueuePresent);
+	VK_CHECK(vkQueuePresentKHR(mDeviceInfo.queuePresent, &presentInfo));
+	VK_CHECK(vkQueueWaitIdle(mDeviceInfo.queuePresent));
 }
 
 // Created SL-160225
@@ -272,7 +266,7 @@ void CAppMain::Update(float deltaTime)
 	);
 
 	// mat projection
-	DirectX::XMMATRIX matProj = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(45.0f), (FLOAT)mViewportWidth / mViewportHeight, 1.0f, 1000.0f);
+	DirectX::XMMATRIX matProj = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(45.0f), (FLOAT)mSwapchainInfo.viewportWidth / mSwapchainInfo.viewportHeight, 1.0f, 1000.0f);
 
 	// WorldViewProjection
 	mWVP = matWorld * matView * matProj;
@@ -281,7 +275,7 @@ void CAppMain::Update(float deltaTime)
 // Created SL-160225
 void CAppMain::SetViewportSize(WORD viewportWidth, WORD viewportHeight)
 {
-	mViewportWidth = viewportWidth;
-	mViewportHeight = viewportHeight;
+	VK_CHECK(vkQueueWaitIdle(mDeviceInfo.queuePresent));
+	mSwapchainInfo.ReInitialize(mDeviceInfo, mSurface, mRenderPass);
 };
 

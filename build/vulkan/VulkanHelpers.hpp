@@ -75,6 +75,7 @@ private:
 	// base handles
 	VkDevice     device = VK_NULL_HANDLE;
 	VkSurfaceKHR surface = VK_NULL_HANDLE;
+	VkRenderPass renderPass = VK_NULL_HANDLE;
 public:
 	// swapchain
 	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
@@ -89,7 +90,6 @@ public:
 	VkPresentModeKHR   presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
 
 	// framebuffer data
-	VkRenderPass               renderPass = VK_NULL_HANDLE;
 	VkImage                    imageDepthStencil = VK_NULL_HANDLE;
 	VkImageView                imageViewDepthStencil = VK_NULL_HANDLE;
 	VkDeviceMemory             memoryDepthStencil = VK_NULL_HANDLE;
@@ -98,9 +98,9 @@ public:
 	std::vector<VkFramebuffer> framebuffers{};
 	
 	// Init/DeInit functions
-	void Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface);
+	void Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface, VkRenderPass renderPass);
 	void DeInitialize();
-	void ReInitialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface);
+	void ReInitialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface, VkRenderPass renderPass);
 };
 
 // InitDeviceQueueCreateInfo
@@ -113,16 +113,6 @@ VkPipelineVertexInputStateCreateInfo InitPipelineVertexInputStateCreateInfo(
 
 // FindPhysicalDevice
 VkPhysicalDevice FindPhysicalDevice(VkInstance instance, VkPhysicalDeviceType physicalDeviceType);
-// FindPhysicalDeviceMemoryIndex
-uint32_t FindPhysicalDeviceMemoryIndex(VkPhysicalDevice physicalDevice, uint32_t propertyFlags);
-// FindPhysicalDeviceQueueFamilyIndex
-uint32_t FindPhysicalDeviceQueueFamilyIndex(VkPhysicalDevice physicalDevice, uint32_t queueFlags);
-// FindSurfaceFormat
-VkSurfaceFormatKHR FindSurfaceFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
-// FindPresentMode
-VkPresentModeKHR FindPresentMode(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
-// FindPresentQueueMode
-uint32_t FindPresentQueueMode(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
 
 // CreateInstance
 VkInstance CreateInstance(
@@ -144,7 +134,7 @@ VkDevice CreateDevice(
 
 // CreateSwapchain
 VkSwapchainKHR CreateSwapchain(
-	VkDevice device, VkSurfaceKHR surface, 
+	VkDevice device, VkSurfaceKHR surface,
 	VkSurfaceFormatKHR surfaceFormat, VkPresentModeKHR presentMode,
 	uint32_t imageCount, uint32_t width, uint32_t height);
 

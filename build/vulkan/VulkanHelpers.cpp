@@ -55,6 +55,7 @@ void VulkanDeviceInfo::Initialize(VkPhysicalDevice physicalDevice, VkSurfaceKHR 
 	queueFamilyIndexGraphics = FindQueueFamilyIndexByFlags(VK_QUEUE_GRAPHICS_BIT);
 	queueFamilyIndexCompute = FindQueueFamilyIndexByFlags(VK_QUEUE_COMPUTE_BIT);
 	queueFamilyIndexTransfer = FindQueueFamilyIndexByFlags(VK_QUEUE_TRANSFER_BIT);
+	queueFamilyIndexPresent = FindPresentQueueFamilyIndex();
 
 	// deviceQueueCreateInfos
 	std::vector<VkDeviceQueueCreateInfo> deviceQueueCreateInfos;
@@ -184,11 +185,12 @@ VkPresentModeKHR VulkanDeviceInfo::FindPresentMode() const
 //////////////////////////////////////////////////////////////////////////
 
 // Initialize
-void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface)
+void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface, VkRenderPass renderPass)
 {
 	// store parameters
 	this->device = deviceInfo.device;
 	this->surface = surface;
+	this->renderPass = renderPass;
 
 	// get parameters
 	presentMode = deviceInfo.FindPresentMode();
@@ -199,9 +201,6 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 	VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(deviceInfo.physicalDevice, surface, &surfaceCapabilitiesKHR));
 	viewportWidth = surfaceCapabilitiesKHR.currentExtent.width;
 	viewportHeight = surfaceCapabilitiesKHR.currentExtent.height;
-
-	renderPass = CreateRenderPass(device);
-	assert(renderPass);
 
 	// VkSwapchainKHR
 	swapchain = CreateSwapchain(deviceInfo.device, surface, surfaceFormat, presentMode, surfaceCapabilitiesKHR.minImageCount, viewportWidth, viewportHeight);
@@ -214,6 +213,7 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 	vkGetSwapchainImagesKHR(device, swapchain, &imageColorsCount, imageColors.data());
 
 	// mSwapChainImageViews
+	imageViewColors.clear();
 	imageViewColors.reserve(imageColorsCount);
 	for (const auto& imageColor : imageColors) {
 		// create image view
@@ -247,6 +247,7 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 	assert(imageViewDepthStencil);
 
 	// create framebuffers
+	framebuffers.clear();
 	framebuffers.reserve(imageColorsCount);
 	for (const auto& imageViewColor : imageViewColors) {
 		// create framebuffer
@@ -262,13 +263,29 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 // DeInitialize
 void VulkanSwapchainInfo::DeInitialize()
 {
+	vkDestroyImage(device, imageDepthStencil, VK_NULL_HANDLE);
+	imageDepthStencil = VK_NULL_HANDLE;
+
+	vkDestroyImageView(device, imageViewDepthStencil, VK_NULL_HANDLE);
+	imageViewDepthStencil = VK_NULL_HANDLE;
+
+	vkFreeMemory(device, memoryDepthStencil, VK_NULL_HANDLE);
+	memoryDepthStencil = VK_NULL_HANDLE;
+
+	for (const auto& imageViewColor : imageViewColors)
+		vkDestroyImageView(device, imageViewColor, VK_NULL_HANDLE);
+	for (const auto& framebuffer : framebuffers)
+		vkDestroyFramebuffer(device, framebuffer, VK_NULL_HANDLE);
+
+	vkDestroySwapchainKHR(device, swapchain, VK_NULL_HANDLE);
+	swapchain = VK_NULL_HANDLE;
 }
 
 // ReInitialize
-void VulkanSwapchainInfo::ReInitialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface)
+void VulkanSwapchainInfo::ReInitialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface, VkRenderPass renderPass)
 {
 	DeInitialize();
-	Initialize(deviceInfo, surface);
+	Initialize(deviceInfo, surface, renderPass);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -405,7 +422,7 @@ VkDevice CreateDevice(
 	const VkPhysicalDeviceFeatures physicalDeviceFeatures)
 {
 	// VkDeviceCreateInfo
-	VkDeviceCreateInfo deviceCreateInfo = {};
+	VkDeviceCreateInfo deviceCreateInfo {};
 	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	deviceCreateInfo.pNext = VK_NULL_HANDLE;
 	deviceCreateInfo.flags = 0;
@@ -433,7 +450,7 @@ VkSwapchainKHR CreateSwapchain(
 	VkSwapchainCreateInfoKHR swapchainCreateInfoKHR = {};
 	swapchainCreateInfoKHR.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	swapchainCreateInfoKHR.surface = surface;
-	swapchainCreateInfoKHR.minImageCount = imageCount + 1;
+	swapchainCreateInfoKHR.minImageCount = imageCount;
 	swapchainCreateInfoKHR.imageFormat = surfaceFormat.format;
 	swapchainCreateInfoKHR.imageColorSpace = surfaceFormat.colorSpace;
 	swapchainCreateInfoKHR.imageExtent.width = width;
@@ -665,11 +682,11 @@ VkPipelineLayout CreatePipelineLayout(VkDevice device)
 
 // CreateGraphicsPipeline
 VkPipeline CreateGraphicsPipeline(
-	VkDevice device, 
-	VkPipelineVertexInputStateCreateInfo vertexInputState, 
-	VkShaderModule vs, VkShaderModule fs, 
-	VkPipelineLayout layout, 
-	VkRenderPass renderPass, 
+	VkDevice device,
+	VkPipelineVertexInputStateCreateInfo vertexInputState,
+	VkShaderModule vs, VkShaderModule fs,
+	VkPipelineLayout layout,
+	VkRenderPass renderPass,
 	uint32_t width, uint32_t height)
 {
 	// VkPipelineShaderStageCreateInfo - shaderStages
@@ -943,7 +960,7 @@ void InitVulkanDebug(VkInstance instance)
 	callbackCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
 	callbackCreateInfo.pNext = nullptr;
 	callbackCreateInfo.flags =
-		VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
+		//VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
 		VK_DEBUG_REPORT_WARNING_BIT_EXT |
 		VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
 		VK_DEBUG_REPORT_ERROR_BIT_EXT |
@@ -977,6 +994,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL MyDebugReportCallback(
 	return VK_TRUE;
 }
 #else
-void InitVulkanDebug(VkInstance instance);
-void DeInitVulkanDebug(VkInstance instance)
+void InitVulkanDebug(VkInstance instance) {};
+void DeInitVulkanDebug(VkInstance instance) {};
 #endif

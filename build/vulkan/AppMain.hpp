@@ -10,21 +10,21 @@ class CAppMain
 {
 private:
 	// vulkan handle holders
-	VulkanDeviceInfo             mDeviceInfo;
-	VulkanSwapchainInfo          mSwapchainInfo;
+	VulkanDeviceInfo    mDeviceInfo;
+	VulkanSwapchainInfo mSwapchainInfo;
 
 	// vulkan handlers
-	VkInstance                   mInstance = VK_NULL_HANDLE;
-	VkSurfaceKHR                 mSurface = VK_NULL_HANDLE;
-	VkShaderModule               mShaderModuleVS = VK_NULL_HANDLE;
-	VkShaderModule               mShaderModuleFS = VK_NULL_HANDLE;
-	VkPipelineLayout             mPipelineLayout = VK_NULL_HANDLE;
-	VkRenderPass                 mRenderPass = VK_NULL_HANDLE;
-	VkPipeline                   mGraphicsPipeline = VK_NULL_HANDLE;
-	VkCommandPool                mCommandPool = VK_NULL_HANDLE;
-	VkCommandBuffer              mCommandBuffer = VK_NULL_HANDLE;
-	VkSemaphore                  mImageAvailableSemaphore;
-	VkSemaphore                  mRenderFinishedSemaphore;
+	VkInstance       mInstance = VK_NULL_HANDLE;
+	VkSurfaceKHR     mSurface = VK_NULL_HANDLE;
+	VkRenderPass     mRenderPass = VK_NULL_HANDLE;
+	VkShaderModule   mShaderModuleVS = VK_NULL_HANDLE;
+	VkShaderModule   mShaderModuleFS = VK_NULL_HANDLE;
+	VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
+	VkPipeline       mGraphicsPipeline = VK_NULL_HANDLE;
+	VkCommandPool    mCommandPool = VK_NULL_HANDLE;
+	VkCommandBuffer  mCommandBuffer = VK_NULL_HANDLE;
+	VkSemaphore      mImageAvailableSemaphore = VK_NULL_HANDLE;
+	VkSemaphore      mRenderFinishedSemaphore = VK_NULL_HANDLE;
 
 	// scene variables
 	DirectX::XMMATRIX mWVP;

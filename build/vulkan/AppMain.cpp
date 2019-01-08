@@ -243,6 +243,9 @@ void CAppMain::Init(const HWND hWnd)
 	mDepthStencilImageView = CreateImageView(mDevice, mDepthStencilImage, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 	assert(mDepthStencilImageView);
 
+	mRenderPass = CreateRenderPass(mDevice);
+	assert(mRenderPass);
+
 	mSwapChainFramebuffers = {};
 	for (const auto& swapChainImageView : mSwapChainImageViews) {
 		// create framebuffer
@@ -277,9 +280,6 @@ void CAppMain::Init(const HWND hWnd)
 
 	mPipelineLayout = CreatePipelineLayout(mDevice);
 	assert(mPipelineLayout);
-
-	mRenderPass = CreateRenderPass(mDevice);
-	assert(mRenderPass);
 
 	mGraphicsPipeline = CreateGraphicsPipeline(mDevice, vertexInputState, mShaderModuleVS, mShaderModuleFS, mPipelineLayout, mRenderPass, mViewportWidth, mViewportHeight);
 	assert(mGraphicsPipeline);

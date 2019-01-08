@@ -9,22 +9,50 @@
 #define VK_CHECK(func)
 #endif
 
-// BufferMemoryHandle
-struct BufferMemoryHandle {
-	VkBuffer buffer = VK_NULL_HANDLE;
-	VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
-};
+// VulkanInstanceInfo
+struct VulkanInstanceInfo
+{
+private:
+#ifdef _DEBUG
+	// debug
+	VkDebugReportCallbackEXT debugReportCallbackEXT = VK_NULL_HANDLE;
+	PFN_vkCreateDebugReportCallbackEXT fnCreateDebugReportCallbackEXT = VK_NULL_HANDLE;
+	PFN_vkDestroyDebugReportCallbackEXT fnDestroyDebugReportCallbackEXT = VK_NULL_HANDLE;
+	static VKAPI_ATTR VkBool32 VKAPI_CALL MyDebugReportCallback(
+		VkDebugReportFlagsEXT flags,
+		VkDebugReportObjectTypeEXT objectType,
+		uint64_t object,
+		size_t location,
+		int32_t messageCode,
+		const char * pLayerPrefix,
+		const char * pMessage,
+		void * pUserData);
+#endif
+public:
+	// base handles
+	VkInstance instance = VK_NULL_HANDLE;
 
-// ImageMemoryHandle
-struct ImageMemoryHandle {
-	VkImage image = VK_NULL_HANDLE;
-	VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
+	// properties
+	std::vector<VkPhysicalDevice> physicalDevices{};
+	std::vector<VkLayerProperties> layerProperties{};
+	std::vector<VkExtensionProperties> extensionProperties{};
+
+	// Init/DeInit functions
+	void Initialize(
+		const char* appName, uint32_t appVersion,
+		const char* engineName, uint32_t engineVersion,
+		std::vector<const char *> enabledLayerNames,
+		std::vector<const char *> enabledExtensionNames,
+		uint32_t apiVersion);
+	void DeInitialize();
+
+	// find functions
+	VkPhysicalDevice FindPhysicalDevice(VkPhysicalDeviceType physicalDeviceType);
 };
 
 // VulkanDeviceInfo
 struct VulkanDeviceInfo 
 {
-public:
 	// base handles
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 	VkSurfaceKHR     surface = VK_NULL_HANDLE;
@@ -55,9 +83,10 @@ public:
 	VkQueue queuePresent = VK_NULL_HANDLE;
 
 	// Init/DeInit functions
-	void Initialize(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
+	void Initialize(
+		VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
 		VkPhysicalDeviceFeatures& physicalDeviceFeatures,
-		std::vector<const char *>& enabledDeviceExtensionNames);
+		std::vector<const char *>& enabledExtensionNames);
 	void DeInitialize();
 
 	// find functions
@@ -111,32 +140,8 @@ VkPipelineVertexInputStateCreateInfo InitPipelineVertexInputStateCreateInfo(
 	std::vector<VkVertexInputBindingDescription>& vertexBindingDescriptions,
 	std::vector<VkVertexInputAttributeDescription>& vertexAttributeDescriptions);
 
-// FindPhysicalDevice
-VkPhysicalDevice FindPhysicalDevice(VkInstance instance, VkPhysicalDeviceType physicalDeviceType);
-
-// CreateInstance
-VkInstance CreateInstance(
-	const char* appName, uint32_t appVersion,
-	const char* engineName, uint32_t engineVersion,
-	std::vector<const char *> enabledLayerNames,
-	std::vector<const char *> enabledExtensionNames,
-	uint32_t apiVersion);
-
 // CreateSurface
 VkSurfaceKHR CreateSurface(VkInstance instance, HWND hWnd);
-
-// CreateDevice
-VkDevice CreateDevice(
-	VkPhysicalDevice physicalDevice,
-	std::vector<VkDeviceQueueCreateInfo>& deviceQueueCreateInfos,
-	std::vector<const char *> enabledExtensionNames,
-	const VkPhysicalDeviceFeatures physicalDeviceFeatures);
-
-// CreateSwapchain
-VkSwapchainKHR CreateSwapchain(
-	VkDevice device, VkSurfaceKHR surface,
-	VkSurfaceFormatKHR surfaceFormat, VkPresentModeKHR presentMode,
-	uint32_t imageCount, uint32_t width, uint32_t height);
 
 // CreateImage
 VkImage CreateImage(VkDevice device, VkFormat format, VkImageUsageFlags usage, uint32_t width, uint32_t height);
@@ -176,9 +181,3 @@ VkCommandBuffer AllocateCommandBuffer(VkDevice device, VkCommandPool commandPool
 
 // CreateSemaphore
 VkSemaphore CreateSemaphore(VkDevice device);
-
-// InitVulkanDebug
-void InitVulkanDebug(VkInstance instance);
-
-// DeInitVulkanDebug
-void DeInitVulkanDebug(VkInstance instance);

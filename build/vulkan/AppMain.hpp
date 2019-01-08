@@ -10,11 +10,11 @@ class CAppMain
 {
 private:
 	// vulkan handle holders
+	VulkanInstanceInfo  mInstanceInfo;
 	VulkanDeviceInfo    mDeviceInfo;
 	VulkanSwapchainInfo mSwapchainInfo;
 
 	// vulkan handlers
-	VkInstance       mInstance = VK_NULL_HANDLE;
 	VkSurfaceKHR     mSurface = VK_NULL_HANDLE;
 	VkRenderPass     mRenderPass = VK_NULL_HANDLE;
 	VkShaderModule   mShaderModuleVS = VK_NULL_HANDLE;

@@ -114,37 +114,13 @@ void CAppMain::Init(const HWND hWnd)
 	};
 
 	// extensions
-	std::vector<const char *> enabledDeviceExtensionNames = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+	std::vector<const char *> enabledDeviceExtensionNames = {
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME
+	};
 
 	// VkPhysicalDeviceFeatures
 	VkPhysicalDeviceFeatures physicalDeviceFeatures{};
 	physicalDeviceFeatures.samplerAnisotropy = VK_TRUE;
-
-	// CreateInstance
-	mInstance = CreateInstance("Vulkan app", VK_MAKE_VERSION(1, 0, 1), "Vulkan Engine", VK_MAKE_VERSION(1, 0, 1), enabledInstanceLayerNames, enabledInstanceExtensionNames, VK_API_VERSION_1_1);
-	assert(mInstance);
-
-	// InitVulkanDebug
-	InitVulkanDebug(mInstance);
-
-	// VkSurface
-	mSurface = CreateSurface(mInstance, hWnd);
-	assert(mSurface);
-
-	// VkPhysicalDevice
-	VkPhysicalDevice physicalDevice = FindPhysicalDevice(mInstance, VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU);
-	assert(physicalDevice);
-
-	// VulkanDeviceInfo
-	mDeviceInfo.Initialize(physicalDevice, mSurface, physicalDeviceFeatures, enabledDeviceExtensionNames);
-	assert(mDeviceInfo.device);
-
-	mRenderPass = CreateRenderPass(mDeviceInfo.device);
-	assert(mRenderPass);
-
-	// VulkanSwapchainInfo
-	mSwapchainInfo.Initialize(mDeviceInfo, mSurface, mRenderPass);
-	assert(mSwapchainInfo.swapchain);
 
 	// VkVertexInputBindingDescription - vertexBindingDescriptions
 	std::vector<VkVertexInputBindingDescription> vertexBindingDescriptions{
@@ -161,6 +137,24 @@ void CAppMain::Init(const HWND hWnd)
 	// VkPipelineVertexInputStateCreateInfo
 	VkPipelineVertexInputStateCreateInfo vertexInputState = InitPipelineVertexInputStateCreateInfo(vertexBindingDescriptions, vertexAttributeDescriptions);
 
+	mInstanceInfo.Initialize("Vulkan app", VK_MAKE_VERSION(1, 0, 1), "Vulkan Engine", VK_MAKE_VERSION(1, 0, 1), enabledInstanceLayerNames, enabledInstanceExtensionNames, VK_API_VERSION_1_1);
+	assert(mInstanceInfo.instance);
+
+	mSurface = CreateSurface(mInstanceInfo.instance, hWnd);
+	assert(mSurface);
+
+	VkPhysicalDevice physicalDevice = mInstanceInfo.FindPhysicalDevice(VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU);
+	assert(physicalDevice);
+
+	mDeviceInfo.Initialize(physicalDevice, mSurface, physicalDeviceFeatures, enabledDeviceExtensionNames);
+	assert(mDeviceInfo.device);
+
+	mRenderPass = CreateRenderPass(mDeviceInfo.device);
+	assert(mRenderPass);
+
+	mSwapchainInfo.Initialize(mDeviceInfo, mSurface, mRenderPass);
+	assert(mSwapchainInfo.swapchain);
+
 	mShaderModuleVS = CreateShaderModuleFromFile(mDeviceInfo.device, "shaders/base.vert.spv");
 	assert(mShaderModuleVS);
 
@@ -171,7 +165,7 @@ void CAppMain::Init(const HWND hWnd)
 	assert(mPipelineLayout);
 
 	mGraphicsPipeline = CreateGraphicsPipeline(mDeviceInfo.device, vertexInputState, mShaderModuleVS, mShaderModuleFS, mPipelineLayout,
-		mRenderPass, mSwapchainInfo.viewportWidth, mSwapchainInfo.viewportWidth);
+		/*mRenderPass*/nullptr, mSwapchainInfo.viewportWidth, mSwapchainInfo.viewportWidth);
 	assert(mGraphicsPipeline);
 
 	mCommandPool = CreateCommandPool(mDeviceInfo.device, mDeviceInfo.queueFamilyIndexGraphics);
@@ -200,9 +194,7 @@ void CAppMain::Destroy()
 	vkDestroyShaderModule(mDeviceInfo.device, mShaderModuleFS, nullptr);
 	vkDestroyShaderModule(mDeviceInfo.device, mShaderModuleVS, nullptr);
 	vkDestroyRenderPass(mDeviceInfo.device, mRenderPass, nullptr);
-	vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
-	DeInitVulkanDebug(mInstance);
-	vkDestroyInstance(mInstance, nullptr);
+	vkDestroySurfaceKHR(mInstanceInfo.instance, mSurface, nullptr);
 }
 
 // Created SL-160225

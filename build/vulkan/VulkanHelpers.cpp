@@ -6,13 +6,145 @@
 #include <array>
 
 //////////////////////////////////////////////////////////////////////////
+// VulkanInstanceInfo
+//////////////////////////////////////////////////////////////////////////
+
+// Initialize
+void VulkanInstanceInfo::Initialize(
+	const char* appName, uint32_t appVersion,
+	const char* engineName, uint32_t engineVersion,
+	std::vector<const char *> enabledLayerNames,
+	std::vector<const char *> enabledExtensionNames,
+	uint32_t apiVersion)
+{
+	// VkLayerProperties
+	uint32_t layerPropertiesCount = 0;
+	VK_CHECK(vkEnumerateInstanceLayerProperties(&layerPropertiesCount, nullptr));
+	layerProperties.reserve(layerPropertiesCount);
+	VK_CHECK(vkEnumerateInstanceLayerProperties(&layerPropertiesCount, layerProperties.data()));
+
+	// VkExtensionProperties
+	uint32_t extensionsPropertiesCount = 0;
+	VK_CHECK(vkEnumerateInstanceExtensionProperties(nullptr, &extensionsPropertiesCount, nullptr));
+	extensionProperties.reserve(extensionsPropertiesCount);
+	VK_CHECK(vkEnumerateInstanceExtensionProperties(nullptr, &extensionsPropertiesCount, extensionProperties.data()));
+
+#ifdef _DEBUG
+	// vkCreateDebugUtilsMessengerEXT and vkDestroyDebugUtilsMessengerEXT
+	fnCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
+	fnDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT");
+
+	// VkDebugReportCallbackCreateInfoEXT
+	VkDebugReportCallbackCreateInfoEXT callbackCreateInfo;
+	callbackCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
+	callbackCreateInfo.pNext = nullptr;
+	callbackCreateInfo.flags =
+		//VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
+		VK_DEBUG_REPORT_WARNING_BIT_EXT |
+		VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
+		VK_DEBUG_REPORT_ERROR_BIT_EXT |
+		VK_DEBUG_REPORT_DEBUG_BIT_EXT;
+	callbackCreateInfo.pfnCallback = &MyDebugReportCallback;
+	callbackCreateInfo.pUserData = nullptr;
+
+	// fnCreateDebugReportCallbackEXT
+	if (fnCreateDebugReportCallbackEXT)
+		VK_CHECK(fnCreateDebugReportCallbackEXT(instance, &callbackCreateInfo, nullptr, &debugReportCallbackEXT));
+#endif
+
+	// VkApplicationInfo
+	VkApplicationInfo applicationInfo = {};
+	applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+	applicationInfo.pNext = VK_NULL_HANDLE;
+	applicationInfo.pApplicationName = appName;
+	applicationInfo.applicationVersion = appVersion;
+	applicationInfo.pEngineName = engineName;
+	applicationInfo.engineVersion = engineVersion;
+	applicationInfo.apiVersion = apiVersion;
+
+	// VkInstanceCreateInfo
+	VkInstanceCreateInfo instanceCreateInfo = {};
+	instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+	instanceCreateInfo.pNext = VK_NULL_HANDLE;
+	instanceCreateInfo.pApplicationInfo = &applicationInfo;
+	instanceCreateInfo.enabledLayerCount = (uint32_t)enabledLayerNames.size();
+	instanceCreateInfo.ppEnabledLayerNames = enabledLayerNames.data();
+	instanceCreateInfo.enabledExtensionCount = (uint32_t)enabledExtensionNames.size();
+	instanceCreateInfo.ppEnabledExtensionNames = enabledExtensionNames.data();
+
+	// vkCreateInstance
+	VK_CHECK(vkCreateInstance(&instanceCreateInfo, VK_NULL_HANDLE, &instance));
+	assert(instance);
+}
+
+// DeInitialize
+void VulkanInstanceInfo::DeInitialize()
+{
+#ifdef _DEBUG
+	if (fnDestroyDebugReportCallbackEXT)
+		fnDestroyDebugReportCallbackEXT(instance, debugReportCallbackEXT, nullptr);
+	debugReportCallbackEXT = VK_NULL_HANDLE;
+#endif
+
+	vkDestroyInstance(instance, VK_NULL_HANDLE);
+	instance = VK_NULL_HANDLE;
+}
+
+// FindPhysicalDevice
+VkPhysicalDevice VulkanInstanceInfo::FindPhysicalDevice(VkPhysicalDeviceType physicalDeviceType)
+{
+	// get physical devices count
+	uint32_t physicalDevicesCount = 0;
+	VK_CHECK(vkEnumeratePhysicalDevices(instance, &physicalDevicesCount, nullptr));
+	assert(physicalDevicesCount);
+	// get physical devices list
+	physicalDevices.resize(physicalDevicesCount);
+	VK_CHECK(vkEnumeratePhysicalDevices(instance, &physicalDevicesCount, physicalDevices.data()));
+
+	// find discrete GPU physical device and physical device features and properties
+	VkPhysicalDeviceFeatures physicalDeviceFeaturesGPU;
+	VkPhysicalDeviceProperties physicalDevicePropertiesGPU;
+	for (const auto& physicalDevice : physicalDevices)
+	{
+		VkPhysicalDeviceFeatures physicalDeviceFeatures;
+		VkPhysicalDeviceProperties physicalDeviceProperties;
+		vkGetPhysicalDeviceFeatures(physicalDevice, &physicalDeviceFeatures);
+		vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
+		if (physicalDeviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+		{
+			physicalDeviceFeaturesGPU = physicalDeviceFeatures;
+			physicalDevicePropertiesGPU = physicalDeviceProperties;
+			return physicalDevice;
+		}
+	}
+	return VK_NULL_HANDLE;
+}
+
+#if _DEBUG
+// MyDebugReportCallback
+VKAPI_ATTR VkBool32 VKAPI_CALL VulkanInstanceInfo::MyDebugReportCallback(
+	VkDebugReportFlagsEXT flags,
+	VkDebugReportObjectTypeEXT objectType,
+	uint64_t object,
+	size_t location,
+	int32_t messageCode,
+	const char * pLayerPrefix,
+	const char * pMessage,
+	void * pUserData)
+{
+	std::cerr << pMessage << std::endl;
+	return VK_TRUE;
+}
+#endif
+
+//////////////////////////////////////////////////////////////////////////
 // VulkanDeviceInfo
 //////////////////////////////////////////////////////////////////////////
 
 // Initialize
 void VulkanDeviceInfo::Initialize(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
 	VkPhysicalDeviceFeatures& physicalDeviceFeatures,
-	std::vector<const char *>& enabledDeviceExtensionNames) 
+	std::vector<const char *>& enabledExtensionNames)
 {
 	// store parameters
 	this->physicalDevice = physicalDevice;
@@ -78,16 +210,33 @@ void VulkanDeviceInfo::Initialize(VkPhysicalDevice physicalDevice, VkSurfaceKHR 
 	VkDeviceQueueCreateInfo deviceQueueCreateInfoPresent = InitDeviceQueueCreateInfo(queueFamilyIndexPresent);
 	if (queueFamilyIndexGraphics != queueFamilyIndexPresent)
 		deviceQueueCreateInfos.push_back(deviceQueueCreateInfoPresent);
+		
+	// VkDeviceCreateInfo
+	VkDeviceCreateInfo deviceCreateInfo{};
+	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	deviceCreateInfo.pNext = VK_NULL_HANDLE;
+	deviceCreateInfo.flags = 0;
+	deviceCreateInfo.queueCreateInfoCount = (uint32_t)deviceQueueCreateInfos.size();
+	deviceCreateInfo.pQueueCreateInfos = deviceQueueCreateInfos.data();
+	deviceCreateInfo.enabledExtensionCount = (uint32_t)enabledExtensionNames.size();
+	deviceCreateInfo.ppEnabledExtensionNames = enabledExtensionNames.data();
+	deviceCreateInfo.enabledLayerCount = 0;
+	deviceCreateInfo.ppEnabledLayerNames = VK_NULL_HANDLE;
+	deviceCreateInfo.pEnabledFeatures = &physicalDeviceFeatures;
 
-	// VkDevice
-	device = CreateDevice(physicalDevice, deviceQueueCreateInfos, enabledDeviceExtensionNames, physicalDeviceFeatures);
+	// vkCreateImage
+	VK_CHECK(vkCreateDevice(physicalDevice, &deviceCreateInfo, VK_NULL_HANDLE, &device));
 	assert(device);
 
 	// vkGetDeviceQueue
 	vkGetDeviceQueue(device, queueFamilyIndexGraphics, 0, &queueGraphics);
+	assert(queueGraphics);
 	vkGetDeviceQueue(device, queueFamilyIndexCompute, 0, &queueCompute);
+	assert(queueCompute);
 	vkGetDeviceQueue(device, queueFamilyIndexTransfer, 0, &queueTransfer);
+	assert(queueTransfer);
 	vkGetDeviceQueue(device, queueFamilyIndexPresent, 0, &queuePresent);
+	assert(queuePresent);
 }
 
 // DeInitialize
@@ -197,13 +346,33 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 	surfaceFormat = deviceInfo.FindSurfaceFormat();
 
 	// VkSurfaceCapabilitiesKHR
-	VkSurfaceCapabilitiesKHR surfaceCapabilitiesKHR;
+	VkSurfaceCapabilitiesKHR surfaceCapabilitiesKHR{};
 	VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(deviceInfo.physicalDevice, surface, &surfaceCapabilitiesKHR));
 	viewportWidth = surfaceCapabilitiesKHR.currentExtent.width;
 	viewportHeight = surfaceCapabilitiesKHR.currentExtent.height;
 
-	// VkSwapchainKHR
-	swapchain = CreateSwapchain(deviceInfo.device, surface, surfaceFormat, presentMode, surfaceCapabilitiesKHR.minImageCount, viewportWidth, viewportHeight);
+	// VkSwapchainCreateInfoKHR
+	VkSwapchainCreateInfoKHR swapchainCreateInfoKHR = {};
+	swapchainCreateInfoKHR.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	swapchainCreateInfoKHR.surface = surface;
+	swapchainCreateInfoKHR.minImageCount = surfaceCapabilitiesKHR.maxImageCount;
+	swapchainCreateInfoKHR.imageFormat = surfaceFormat.format;
+	swapchainCreateInfoKHR.imageColorSpace = surfaceFormat.colorSpace;
+	swapchainCreateInfoKHR.imageExtent.width = surfaceCapabilitiesKHR.currentExtent.width;
+	swapchainCreateInfoKHR.imageExtent.height = surfaceCapabilitiesKHR.currentExtent.height;
+	swapchainCreateInfoKHR.imageArrayLayers = 1;
+	swapchainCreateInfoKHR.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	swapchainCreateInfoKHR.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	swapchainCreateInfoKHR.queueFamilyIndexCount = 0;
+	swapchainCreateInfoKHR.pQueueFamilyIndices = VK_NULL_HANDLE;
+	swapchainCreateInfoKHR.preTransform = surfaceCapabilitiesKHR.currentTransform;
+	swapchainCreateInfoKHR.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	swapchainCreateInfoKHR.presentMode = presentMode;
+	swapchainCreateInfoKHR.clipped = VK_TRUE;
+	swapchainCreateInfoKHR.oldSwapchain = VK_NULL_HANDLE;
+
+	// vkCreateSwapchainKHR
+	VK_CHECK(vkCreateSwapchainKHR(device, &swapchainCreateInfoKHR, nullptr, &swapchain));
 	assert(swapchain);
 
 	// swapChainImages
@@ -323,80 +492,6 @@ VkPipelineVertexInputStateCreateInfo InitPipelineVertexInputStateCreateInfo(
 	return vertexInputState;
 }
 
-// FindPhysicalDevice
-VkPhysicalDevice FindPhysicalDevice(VkInstance instance, VkPhysicalDeviceType physicalDeviceType)
-{
-	// VkPhysicalDevice and VkPhysicalDeviceFeatures
-	uint32_t physicalDevicesCount = 0;
-	VK_CHECK(vkEnumeratePhysicalDevices(instance, &physicalDevicesCount, nullptr));
-	std::vector<VkPhysicalDevice> physicalDevices(physicalDevicesCount);
-	VK_CHECK(vkEnumeratePhysicalDevices(instance, &physicalDevicesCount, physicalDevices.data()));
-
-	// find discrete GPU physical device and physical device features and properties
-	VkPhysicalDeviceFeatures physicalDeviceFeaturesGPU;
-	VkPhysicalDeviceProperties physicalDevicePropertiesGPU;
-	for (const auto& physicalDevice : physicalDevices)
-	{
-		VkPhysicalDeviceFeatures physicalDeviceFeatures;
-		VkPhysicalDeviceProperties physicalDeviceProperties;
-		vkGetPhysicalDeviceFeatures(physicalDevice, &physicalDeviceFeatures);
-		vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
-		if (physicalDeviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
-		{	
-			physicalDeviceFeaturesGPU = physicalDeviceFeatures;
-			physicalDevicePropertiesGPU = physicalDeviceProperties;
-			return physicalDevice;
-		}
-	}
-	return VK_NULL_HANDLE;
-}
-
-// CreateInstance
-VkInstance CreateInstance(
-	const char* appName, uint32_t appVersion,
-	const char* engineName, uint32_t engineVersion,
-	std::vector<const char *> enabledLayerNames,
-	std::vector<const char *> enabledExtensionNames,
-	uint32_t apiVersion)
-{
-	// VkLayerProperties
-	uint32_t instanceLayerPropertiesCount = 0;
-	VK_CHECK(vkEnumerateInstanceLayerProperties(&instanceLayerPropertiesCount, nullptr));
-	std::vector<VkLayerProperties> instanceLayerProperties(instanceLayerPropertiesCount);
-	VK_CHECK(vkEnumerateInstanceLayerProperties(&instanceLayerPropertiesCount, instanceLayerProperties.data()));
-
-	// VkExtensionProperties
-	uint32_t instanceExtensionsPropertiesCount = 0;
-	VK_CHECK(vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionsPropertiesCount, nullptr));
-	std::vector<VkExtensionProperties> instanceExtensionProperties(instanceExtensionsPropertiesCount);
-	VK_CHECK(vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionsPropertiesCount, instanceExtensionProperties.data()));
-
-	// VkApplicationInfo
-	VkApplicationInfo applicationInfo = {};
-	applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	applicationInfo.pNext = VK_NULL_HANDLE;
-	applicationInfo.pApplicationName = appName;
-	applicationInfo.applicationVersion = appVersion;
-	applicationInfo.pEngineName = engineName;
-	applicationInfo.engineVersion = engineVersion;
-	applicationInfo.apiVersion = apiVersion;
-
-	// VkInstanceCreateInfo
-	VkInstanceCreateInfo instanceCreateInfo = {};
-	instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-	instanceCreateInfo.pNext = VK_NULL_HANDLE;
-	instanceCreateInfo.pApplicationInfo = &applicationInfo;
-	instanceCreateInfo.enabledLayerCount = (uint32_t)enabledLayerNames.size();
-	instanceCreateInfo.ppEnabledLayerNames = enabledLayerNames.data();
-	instanceCreateInfo.enabledExtensionCount = (uint32_t)enabledExtensionNames.size();
-	instanceCreateInfo.ppEnabledExtensionNames = enabledExtensionNames.data();
-
-	// vkCreateInstance
-	VkInstance instance = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateInstance(&instanceCreateInfo, VK_NULL_HANDLE, &instance));
-	return instance;
-}
-
 // CreateSurface
 VkSurfaceKHR CreateSurface(VkInstance instance, HWND hWnd)
 {
@@ -412,64 +507,6 @@ VkSurfaceKHR CreateSurface(VkInstance instance, HWND hWnd)
 	VkSurfaceKHR surface = VK_NULL_HANDLE;
 	VK_CHECK(vkCreateWin32SurfaceKHR(instance, &win32SurfaceCreateInfoKHR, nullptr, &surface));
 	return surface;
-}
-
-// CreateDevice
-VkDevice CreateDevice(
-	VkPhysicalDevice physicalDevice,
-	std::vector<VkDeviceQueueCreateInfo>& deviceQueueCreateInfos,
-	std::vector<const char *> enabledExtensionNames,
-	const VkPhysicalDeviceFeatures physicalDeviceFeatures)
-{
-	// VkDeviceCreateInfo
-	VkDeviceCreateInfo deviceCreateInfo {};
-	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	deviceCreateInfo.pNext = VK_NULL_HANDLE;
-	deviceCreateInfo.flags = 0;
-	deviceCreateInfo.queueCreateInfoCount = (uint32_t)deviceQueueCreateInfos.size();
-	deviceCreateInfo.pQueueCreateInfos = deviceQueueCreateInfos.data();
-	deviceCreateInfo.enabledExtensionCount = (uint32_t)enabledExtensionNames.size();
-	deviceCreateInfo.ppEnabledExtensionNames = enabledExtensionNames.data();
-	deviceCreateInfo.enabledLayerCount = 0;
-	deviceCreateInfo.ppEnabledLayerNames = VK_NULL_HANDLE;
-	deviceCreateInfo.pEnabledFeatures = &physicalDeviceFeatures;
-
-	// vkCreateImage
-	VkDevice device = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateDevice(physicalDevice, &deviceCreateInfo, VK_NULL_HANDLE, &device));
-	return device;
-}
-
-// CreateSwapchain
-VkSwapchainKHR CreateSwapchain(
-	VkDevice device, VkSurfaceKHR surface,
-	VkSurfaceFormatKHR surfaceFormat, VkPresentModeKHR presentMode,
-	uint32_t imageCount, uint32_t width, uint32_t height)
-{
-	// VkSwapchainCreateInfoKHR
-	VkSwapchainCreateInfoKHR swapchainCreateInfoKHR = {};
-	swapchainCreateInfoKHR.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-	swapchainCreateInfoKHR.surface = surface;
-	swapchainCreateInfoKHR.minImageCount = imageCount;
-	swapchainCreateInfoKHR.imageFormat = surfaceFormat.format;
-	swapchainCreateInfoKHR.imageColorSpace = surfaceFormat.colorSpace;
-	swapchainCreateInfoKHR.imageExtent.width = width;
-	swapchainCreateInfoKHR.imageExtent.height = height;
-	swapchainCreateInfoKHR.imageArrayLayers = 1;
-	swapchainCreateInfoKHR.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	swapchainCreateInfoKHR.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	swapchainCreateInfoKHR.queueFamilyIndexCount = 0;
-	swapchainCreateInfoKHR.pQueueFamilyIndices = VK_NULL_HANDLE;
-	swapchainCreateInfoKHR.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-	swapchainCreateInfoKHR.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	swapchainCreateInfoKHR.presentMode = presentMode;
-	swapchainCreateInfoKHR.clipped = VK_TRUE;
-	swapchainCreateInfoKHR.oldSwapchain = VK_NULL_HANDLE;
-
-	// vkCreateSwapchainKHR
-	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateSwapchainKHR(device, &swapchainCreateInfoKHR, nullptr, &swapchain));
-	return swapchain;
 }
 
 // CreateImageView
@@ -929,71 +966,7 @@ VkSemaphore CreateSemaphore(VkDevice device)
 	semaphoreCreateInfo.flags = 0;
 
 	// vkCreateSemaphore
-	VkSemaphore semaphore;
+	VkSemaphore semaphore = VK_NULL_HANDLE;
 	VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, VK_NULL_HANDLE, &semaphore));
 	return semaphore;
 }
-
-#if _DEBUG
-static VkDebugReportCallbackEXT debugReportCallbackEXT = VK_NULL_HANDLE;
-static PFN_vkCreateDebugReportCallbackEXT fnCreateDebugReportCallbackEXT = VK_NULL_HANDLE;
-static PFN_vkDestroyDebugReportCallbackEXT fnDestroyDebugReportCallbackEXT = VK_NULL_HANDLE;
-VKAPI_ATTR VkBool32 VKAPI_CALL MyDebugReportCallback(
-	VkDebugReportFlagsEXT flags,
-	VkDebugReportObjectTypeEXT objectType,
-	uint64_t object,
-	size_t location,
-	int32_t messageCode,
-	const char * pLayerPrefix,
-	const char * pMessage,
-	void * pUserData);
-
-// InitVulkanDebug
-void InitVulkanDebug(VkInstance instance)
-{
-	// vkCreateDebugUtilsMessengerEXT and vkDestroyDebugUtilsMessengerEXT
-	fnCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
-	fnDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT");
-
-	// VkDebugReportCallbackCreateInfoEXT
-	VkDebugReportCallbackCreateInfoEXT callbackCreateInfo;
-	callbackCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
-	callbackCreateInfo.pNext = nullptr;
-	callbackCreateInfo.flags =
-		//VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
-		VK_DEBUG_REPORT_WARNING_BIT_EXT |
-		VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
-		VK_DEBUG_REPORT_ERROR_BIT_EXT |
-		VK_DEBUG_REPORT_DEBUG_BIT_EXT;
-	callbackCreateInfo.pfnCallback = &MyDebugReportCallback;
-	callbackCreateInfo.pUserData = nullptr;
-
-	// fnCreateDebugReportCallbackEXT
-	if (fnCreateDebugReportCallbackEXT)
-		VK_CHECK(fnCreateDebugReportCallbackEXT(instance, &callbackCreateInfo, nullptr, &debugReportCallbackEXT));
-}
-
-// DeInitVulkanDebug
-void DeInitVulkanDebug(VkInstance instance)
-{
-	if (fnDestroyDebugReportCallbackEXT)
-		fnDestroyDebugReportCallbackEXT(instance, debugReportCallbackEXT, nullptr);
-}
-
-VKAPI_ATTR VkBool32 VKAPI_CALL MyDebugReportCallback(
-	VkDebugReportFlagsEXT flags,
-	VkDebugReportObjectTypeEXT objectType,
-	uint64_t object,
-	size_t location,
-	int32_t messageCode,
-	const char * pLayerPrefix,
-	const char * pMessage,
-	void * pUserData)
-{
-	std::cerr << pMessage << std::endl;
-	return VK_TRUE;
-}
-#else
-void InitVulkanDebug(VkInstance instance) {};
-void DeInitVulkanDebug(VkInstance instance) {};
-#endif

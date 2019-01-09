@@ -21,10 +21,15 @@ private:
 	VkShaderModule   mShaderModuleFS = VK_NULL_HANDLE;
 	VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
 	VkPipeline       mGraphicsPipeline = VK_NULL_HANDLE;
-	VkCommandPool    mCommandPool = VK_NULL_HANDLE;
 	VkCommandBuffer  mCommandBuffer = VK_NULL_HANDLE;
 	VkSemaphore      mImageAvailableSemaphore = VK_NULL_HANDLE;
 	VkSemaphore      mRenderFinishedSemaphore = VK_NULL_HANDLE;
+
+	// buffers
+	VkBuffer         mModelVertexBuffer = VK_NULL_HANDLE;
+	VkBuffer         mModelIndexBuffer = VK_NULL_HANDLE;
+	VkDeviceMemory   mModelVertexDeviceMemory = VK_NULL_HANDLE;
+	VkDeviceMemory   mModelIndexDeviceMemory = VK_NULL_HANDLE;
 
 	// scene variables
 	DirectX::XMMATRIX mWVP;

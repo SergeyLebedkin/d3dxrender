@@ -82,6 +82,9 @@ struct VulkanDeviceInfo
 	VkQueue queueTransfer = VK_NULL_HANDLE;
 	VkQueue queuePresent = VK_NULL_HANDLE;
 
+	// command pool
+	VkCommandPool commandPool = VK_NULL_HANDLE;
+
 	// Init/DeInit functions
 	void Initialize(
 		VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
@@ -89,11 +92,12 @@ struct VulkanDeviceInfo
 		std::vector<const char *>& enabledExtensionNames);
 	void DeInitialize();
 
-	// find functions
+	// util functions
 	void FindPresentQueueFamilyIndexes(uint32_t& graphicsIndex, uint32_t& presentIndex) const;
 	uint32_t FindQueueFamilyIndexByFlags(uint32_t queueFlags) const;
 	uint32_t FindMemoryHeapIndexByFlags(VkMemoryPropertyFlags propertyFlags) const;
 	uint32_t FindMemoryHeapIndexByBits(uint32_t bits, VkMemoryPropertyFlags propertyFlags) const;
+	uint32_t CheckMemoryHeapIndexByBits(uint32_t index, VkMemoryPropertyFlags propertyFlags) const;
 	VkSurfaceFormatKHR FindSurfaceFormat() const;
 	VkPresentModeKHR FindPresentMode() const;
 

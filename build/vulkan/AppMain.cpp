@@ -10,9 +10,9 @@ struct CUSTOMVERTEX { FLOAT X, Y, Z, W; FLOAT R, G, B, A; FLOAT U, V; };
 
 // vertex array
 CUSTOMVERTEX vertices[] = {
-	{ +1.0f, -1.0f, +0.0f, +1.0, /**/+1.0f, +1.0f, +0.0f, +1.0, /**/+1, +0 },
-	{ +1.0f, +1.0f, +0.0f, +1.0, /**/+1.0f, +1.0f, +0.0f, +1.0, /**/+1, +1 },
-	{ -1.0f, -1.0f, +0.0f, +1.0, /**/+1.0f, +0.0f, +0.0f, +1.0, /**/+0, +0 },
+	{ +1.0f, -1.0f, +0.0f, +1.0, /**/+1.0f, +0.0f, +0.0f, +1.0, /**/+1, +0 },
+	{ +1.0f, +1.0f, +0.0f, +1.0, /**/+0.0f, +1.0f, +0.0f, +1.0, /**/+1, +1 },
+	{ -1.0f, -1.0f, +0.0f, +1.0, /**/+0.0f, +0.0f, +1.0f, +1.0, /**/+0, +0 },
 	{ -1.0f, +1.0f, +0.0f, +1.0, /**/+1.0f, +1.0f, +0.0f, +1.0, /**/+0, +1 },
 };
 
@@ -20,7 +20,10 @@ CUSTOMVERTEX vertices[] = {
 uint16_t indexes[] = { 0, 1, 2, 2, 1, 3 };
 
 // FillCommandBuffer
-void FillCommandBuffer(VkCommandBuffer commandBuffer, VkPipeline graphicsPipeline, VkRenderPass renderPass, VkFramebuffer framebuffer, VkExtent2D extent2D)
+void FillCommandBuffer(
+	VkCommandBuffer commandBuffer, VkPipeline graphicsPipeline,
+	VkRenderPass renderPass, VkFramebuffer framebuffer, VkExtent2D extent2D,
+	VkBuffer vertexBuffer, VkBuffer indexBuffer)
 {
 	// VkCommandBufferBeginInfo
 	VkCommandBufferBeginInfo commandBufferBeginInfo = {};
@@ -62,13 +65,18 @@ void FillCommandBuffer(VkCommandBuffer commandBuffer, VkPipeline graphicsPipelin
 	scissor.extent.width = extent2D.width;
 	scissor.extent.height = extent2D.height;
 
+	// VkDeviceSize
+	VkDeviceSize offset = 0;
+
 	// GO RENDER
 	vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 	
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-	vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, &offset);
+	vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+	vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
 	
 	vkCmdEndRenderPass(commandBuffer);
 
@@ -107,9 +115,9 @@ void CAppMain::Init(const HWND hWnd)
 
 	// VkVertexInputAttributeDescription - vertexAttributeDescriptions
 	std::vector<VkVertexInputAttributeDescription> vertexAttributeDescriptions = {
-		{ 0, 0, VK_FORMAT_R8G8B8A8_SNORM, 0 },
-		{ 1, 0, VK_FORMAT_R8G8B8A8_SNORM, 16 },
-		{ 2, 0, VK_FORMAT_R8G8_SNORM, 32 },
+		{ 0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0 },
+		{ 1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 16 },
+		{ 2, 0, VK_FORMAT_R32G32_SFLOAT, 32 },
 	};
 
 	// VkPipelineVertexInputStateCreateInfo
@@ -146,10 +154,7 @@ void CAppMain::Init(const HWND hWnd)
 		mRenderPass, mSwapchainInfo.viewportWidth, mSwapchainInfo.viewportWidth);
 	assert(mGraphicsPipeline);
 
-	mCommandPool = CreateCommandPool(mDeviceInfo.device, mDeviceInfo.queueFamilyIndexGraphics);
-	assert(mCommandPool);
-
-	mCommandBuffer = AllocateCommandBuffer(mDeviceInfo.device, mCommandPool);
+	mCommandBuffer = AllocateCommandBuffer(mDeviceInfo.device, mDeviceInfo.commandPool);
 	assert(mCommandBuffer);
 
 	mImageAvailableSemaphore = CreateSemaphore(mDeviceInfo.device);
@@ -158,27 +163,35 @@ void CAppMain::Init(const HWND hWnd)
 	mRenderFinishedSemaphore = CreateSemaphore(mDeviceInfo.device);
 	assert(mRenderFinishedSemaphore);
 
-	VkBuffer buffer = VK_NULL_HANDLE;
-	VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
-	//mDeviceInfo.AllocateBuffer(1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, buffer, deviceMemory);
-	mDeviceInfo.AllocateBufferAndMemory(1024, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, buffer, deviceMemory);
-	vkFreeMemory(mDeviceInfo.device, deviceMemory, VK_NULL_HANDLE);
-	vkDestroyBuffer(mDeviceInfo.device, buffer, VK_NULL_HANDLE);
+	// allocate vertex buffer and device memory
+	mDeviceInfo.AllocateBufferAndMemory(sizeof(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mModelVertexBuffer, mModelVertexDeviceMemory);
+	mDeviceInfo.UpdateBufferAndMemory(vertices, sizeof(vertices), mModelVertexBuffer, mModelVertexDeviceMemory);
+	assert(mModelVertexBuffer);
+	assert(mModelVertexDeviceMemory);
+
+	// allocate index buffer and device memory
+	mDeviceInfo.AllocateBufferAndMemory(sizeof(indexes), VK_BUFFER_USAGE_INDEX_BUFFER_BIT, mModelIndexBuffer, mModelIndexDeviceMemory);
+	mDeviceInfo.UpdateBufferAndMemory(indexes, sizeof(indexes), mModelIndexBuffer, mModelIndexDeviceMemory);
+	assert(mModelIndexBuffer);
+	assert(mModelIndexDeviceMemory);
 }
 
 // Created SL-160225
 void CAppMain::Destroy()
 {
-	vkDestroySemaphore(mDeviceInfo.device, mRenderFinishedSemaphore, nullptr);
-	vkDestroySemaphore(mDeviceInfo.device, mImageAvailableSemaphore, nullptr);
-	vkDestroyCommandPool(mDeviceInfo.device, mCommandPool, nullptr);
-	vkDestroyPipeline(mDeviceInfo.device, mGraphicsPipeline, nullptr);
-	vkDestroyPipelineLayout(mDeviceInfo.device, mPipelineLayout, nullptr);
-	vkDestroyShaderModule(mDeviceInfo.device, mShaderModuleFS, nullptr);
-	vkDestroyShaderModule(mDeviceInfo.device, mShaderModuleVS, nullptr);
-	vkDestroyRenderPass(mDeviceInfo.device, mRenderPass, nullptr);
+	vkFreeMemory(mDeviceInfo.device, mModelIndexDeviceMemory, VK_NULL_HANDLE);
+	vkFreeMemory(mDeviceInfo.device, mModelVertexDeviceMemory, VK_NULL_HANDLE);
+	vkDestroyBuffer(mDeviceInfo.device, mModelIndexBuffer, VK_NULL_HANDLE);
+	vkDestroyBuffer(mDeviceInfo.device, mModelVertexBuffer, VK_NULL_HANDLE);
+	vkDestroySemaphore(mDeviceInfo.device, mRenderFinishedSemaphore, VK_NULL_HANDLE);
+	vkDestroySemaphore(mDeviceInfo.device, mImageAvailableSemaphore, VK_NULL_HANDLE);
+	vkDestroyPipeline(mDeviceInfo.device, mGraphicsPipeline, VK_NULL_HANDLE);
+	vkDestroyPipelineLayout(mDeviceInfo.device, mPipelineLayout, VK_NULL_HANDLE);
+	vkDestroyShaderModule(mDeviceInfo.device, mShaderModuleFS, VK_NULL_HANDLE);
+	vkDestroyShaderModule(mDeviceInfo.device, mShaderModuleVS, VK_NULL_HANDLE);
+	vkDestroyRenderPass(mDeviceInfo.device, mRenderPass, VK_NULL_HANDLE);
 	mSwapchainInfo.DeInitialize();
-	vkDestroySurfaceKHR(mInstanceInfo.instance, mSurface, nullptr);
+	vkDestroySurfaceKHR(mInstanceInfo.instance, mSurface, VK_NULL_HANDLE);
 	mDeviceInfo.DeInitialize();
 	mInstanceInfo.DeInitialize();
 }
@@ -195,7 +208,7 @@ void CAppMain::Render()
 	extend2d.width = mSwapchainInfo.viewportWidth;
 
 	// refill command buffer (RENDER CURRENT FRAME TO CURRENT FRAME BUFFER)
-	FillCommandBuffer(mCommandBuffer, mGraphicsPipeline, mRenderPass, framebuffer, extend2d);
+	FillCommandBuffer(mCommandBuffer, mGraphicsPipeline, mRenderPass, framebuffer, extend2d, mModelVertexBuffer, mModelIndexBuffer);
 
 	// submit render command buffer
 	QueueSubmit(mDeviceInfo.queueGraphics, mCommandBuffer, mImageAvailableSemaphore, mRenderFinishedSemaphore);

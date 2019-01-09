@@ -237,11 +237,22 @@ void VulkanDeviceInfo::Initialize(VkPhysicalDevice physicalDevice, VkSurfaceKHR 
 	assert(queueTransfer);
 	vkGetDeviceQueue(device, queueFamilyIndexPresent, 0, &queuePresent);
 	assert(queuePresent);
+
+	// VkCommandPoolCreateInfo
+	VkCommandPoolCreateInfo commandPoolCreateInfo{};
+	commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	commandPoolCreateInfo.pNext = VK_NULL_HANDLE;
+	commandPoolCreateInfo.flags = 0;
+	commandPoolCreateInfo.queueFamilyIndex = queueFamilyIndexGraphics;
+	VK_CHECK(vkCreateCommandPool(device, &commandPoolCreateInfo, VK_NULL_HANDLE, &commandPool));
+	assert(commandPool);
 }
 
 // DeInitialize
 void VulkanDeviceInfo::DeInitialize()
 {
+	vkDestroyCommandPool(device, commandPool, VK_NULL_HANDLE);
+	commandPool = VK_NULL_HANDLE;
 	vkDestroyDevice(device, VK_NULL_HANDLE);
 	device = VK_NULL_HANDLE;
 }
@@ -306,6 +317,13 @@ uint32_t VulkanDeviceInfo::FindMemoryHeapIndexByBits(uint32_t bits, VkMemoryProp
 	return UINT32_MAX;
 }
 
+// CheckMemoryHeapIndexByBits
+uint32_t VulkanDeviceInfo::CheckMemoryHeapIndexByBits(uint32_t index, VkMemoryPropertyFlags propertyFlags) const
+{
+	assert(index < deviceMemoryProperties.memoryTypeCount);
+	return ((deviceMemoryProperties.memoryTypes[index].propertyFlags & propertyFlags) == propertyFlags);
+}
+
 // FindSurfaceFormat
 VkSurfaceFormatKHR VulkanDeviceInfo::FindSurfaceFormat() const
 {
@@ -355,7 +373,7 @@ void VulkanDeviceInfo::AllocateBufferAndMemory(VkDeviceSize size, VkBufferUsageF
 	VkBufferCreateInfo bufferCreateInfo{};
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferCreateInfo.size = size;
-	bufferCreateInfo.usage = usage;
+	bufferCreateInfo.usage = usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	VK_CHECK(vkCreateBuffer(device, &bufferCreateInfo, nullptr, &buffer));
 	assert(buffer);
@@ -366,23 +384,111 @@ void VulkanDeviceInfo::AllocateBufferAndMemory(VkDeviceSize size, VkBufferUsageF
 
 	// get memory heap index (it should be the same as device memory index (I am not sure about it)
 	uint32_t heapIndex = FindMemoryHeapIndexByBits(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	assert(heapIndex == memoryDeviceLocalTypeIndex);
 
-	// allocate host visible memory
+	// allocate buffer native memory
 	VkMemoryAllocateInfo memoryAllocateInfo{};
 	memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	memoryAllocateInfo.pNext = VK_NULL_HANDLE;
 	memoryAllocateInfo.memoryTypeIndex = heapIndex;
 	memoryAllocateInfo.allocationSize = memRequirements.size;
-	vkAllocateMemory(device, &memoryAllocateInfo, VK_NULL_HANDLE, &deviceMemory);
-	vkBindBufferMemory(device, buffer, deviceMemory, 0);
+	VK_CHECK(vkAllocateMemory(device, &memoryAllocateInfo, VK_NULL_HANDLE, &deviceMemory));
+	VK_CHECK(vkBindBufferMemory(device, buffer, deviceMemory, 0));
 	assert(deviceMemory);
 }
 
 // UpdateBufferAndMemory
 void VulkanDeviceInfo::UpdateBufferAndMemory(const void* data, VkDeviceSize size, VkBuffer buffer, VkDeviceMemory deviceMemory)
 {
-	assert(0 && "not implemented");
+	// VkMemoryRequirements
+	VkMemoryRequirements memRequirements;
+	vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
+
+	// get memory heap index (it should be the same as device memory index (I am not sure about it)
+	uint32_t heapIndex = FindMemoryHeapIndexByBits(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+	// if target device memory is host visible, then just map/unmap memory to device memory
+	if (CheckMemoryHeapIndexByBits(heapIndex, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+		void* stagingData = nullptr;
+		VK_CHECK(vkMapMemory(device, deviceMemory, 0, size, 0, &stagingData));
+		assert(stagingData);
+		memcpy(stagingData, data, size);
+		vkUnmapMemory(device, deviceMemory);
+	} 
+	else // if target device memory is NOT host visible, then we need use staging buffer
+	{
+		// VkBufferCreateInfo
+		VkBuffer stagingBuffer = VK_NULL_HANDLE;
+		VkBufferCreateInfo bufferCreateInfo{};
+		bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferCreateInfo.size = size;
+		bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		VK_CHECK(vkCreateBuffer(device, &bufferCreateInfo, nullptr, &stagingBuffer));
+		assert(buffer);
+
+		// allocate host visible memory
+		VkDeviceMemory stagingDeviceMemory = VK_NULL_HANDLE;
+		VkMemoryAllocateInfo memoryAllocateInfo{};
+		memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		memoryAllocateInfo.pNext = VK_NULL_HANDLE;
+		memoryAllocateInfo.memoryTypeIndex = memoryHostVisibleTypeIndex;
+		memoryAllocateInfo.allocationSize = memRequirements.size;
+		VK_CHECK(vkAllocateMemory(device, &memoryAllocateInfo, VK_NULL_HANDLE, &stagingDeviceMemory));
+		VK_CHECK(vkBindBufferMemory(device, stagingBuffer, stagingDeviceMemory, 0));
+		assert(stagingDeviceMemory);
+
+		// copy data to staging buffer
+		void* stagingData = nullptr;
+		VK_CHECK(vkMapMemory(device, stagingDeviceMemory, 0, size, 0, &stagingData));
+		assert(stagingData);
+		memcpy(stagingData, data, size);
+		vkUnmapMemory(device, stagingDeviceMemory);
+
+		// VkCommandBufferAllocateInfo
+		VkCommandBufferAllocateInfo commandBufferAllocateInfo{};
+		commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		commandBufferAllocateInfo.pNext = VK_NULL_HANDLE;
+		commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		commandBufferAllocateInfo.commandPool = commandPool;
+		commandBufferAllocateInfo.commandBufferCount = 1;
+
+		// VkCommandBuffer
+		VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+		VK_CHECK(vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &commandBuffer));
+		assert(commandBuffer);
+
+		// VkCommandBufferBeginInfo
+		VkCommandBufferBeginInfo commandBufferBeginInfo{};
+		commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		commandBufferBeginInfo.pNext = VK_NULL_HANDLE;
+		commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		commandBufferBeginInfo.pInheritanceInfo = nullptr; // Optional
+		VK_CHECK(vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo));
+
+		// VkBufferCopy
+		VkBufferCopy bufferCopy{};
+		bufferCopy.srcOffset = 0;
+		bufferCopy.dstOffset = 0;
+		bufferCopy.size = size;
+		vkCmdCopyBuffer(commandBuffer, stagingBuffer, buffer, 1, &bufferCopy);
+
+		// vkEndCommandBuffer
+		VK_CHECK(vkEndCommandBuffer(commandBuffer));
+
+		// submit and wait
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.pNext = VK_NULL_HANDLE;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer;
+		VK_CHECK(vkQueueSubmit(queueGraphics, 1, &submitInfo, VK_NULL_HANDLE));
+		VK_CHECK(vkQueueWaitIdle(queueGraphics));
+
+		// free staging memory
+		vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+		vkFreeMemory(device, stagingDeviceMemory, VK_NULL_HANDLE);
+		vkDestroyBuffer(device, stagingBuffer, VK_NULL_HANDLE);
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -950,7 +1056,7 @@ VkPipeline CreateGraphicsPipeline(
 	// VkPipelineColorBlendStateCreateInfo - colorBlendState
 	VkPipelineColorBlendStateCreateInfo colorBlendState{};
 	colorBlendState.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-	colorBlendState.pNext = VK_NULL_HANDLE;;
+	colorBlendState.pNext = VK_NULL_HANDLE;
 	colorBlendState.flags = 0;
 	colorBlendState.logicOpEnable = VK_FALSE;
 	colorBlendState.logicOp = VK_LOGIC_OP_COPY; // Optional

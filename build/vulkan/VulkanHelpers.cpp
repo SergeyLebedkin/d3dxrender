@@ -283,11 +283,23 @@ uint32_t VulkanDeviceInfo::FindQueueFamilyIndexByFlags(uint32_t queueFlags) cons
 }
 
 // FindMemoryHeapIndexByFlags
-uint32_t VulkanDeviceInfo::FindMemoryHeapIndexByFlags(uint32_t propertyFlags) const
+uint32_t VulkanDeviceInfo::FindMemoryHeapIndexByFlags(VkMemoryPropertyFlags propertyFlags) const
 {
 	// find device local memory type index
 	for (uint32_t i = 0; i < deviceMemoryProperties.memoryTypeCount; i++)
 		if ((deviceMemoryProperties.memoryTypes[i].propertyFlags & propertyFlags) == propertyFlags)
+			return i;
+	assert(0);
+	// return default
+	return UINT32_MAX;
+}
+
+// FindMemoryHeapIndexByBits
+uint32_t VulkanDeviceInfo::FindMemoryHeapIndexByBits(uint32_t bits, VkMemoryPropertyFlags propertyFlags) const
+{
+	// find device local memory type index
+	for (uint32_t i = 0; i < deviceMemoryProperties.memoryTypeCount; i++)
+		if ((bits & 1 << i) && ((deviceMemoryProperties.memoryTypes[i].propertyFlags & propertyFlags) == propertyFlags))
 			return i;
 	assert(0);
 	// return default
@@ -334,6 +346,43 @@ VkPresentModeKHR VulkanDeviceInfo::FindPresentMode() const
 
 	// return default
 	return presentModes[0];
+}
+
+// AllocateBufferAndMemory
+void VulkanDeviceInfo::AllocateBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VkDeviceMemory& deviceMemory)
+{
+	// VkBufferCreateInfo
+	VkBufferCreateInfo bufferCreateInfo{};
+	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferCreateInfo.size = size;
+	bufferCreateInfo.usage = usage;
+	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	VK_CHECK(vkCreateBuffer(device, &bufferCreateInfo, nullptr, &buffer));
+	assert(buffer);
+
+	// VkMemoryRequirements
+	VkMemoryRequirements memRequirements;
+	vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
+
+	// get memory heap index (it should be the same as device memory index (I am not sure about it)
+	uint32_t heapIndex = FindMemoryHeapIndexByBits(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	assert(heapIndex == memoryDeviceLocalTypeIndex);
+
+	// allocate host visible memory
+	VkMemoryAllocateInfo memoryAllocateInfo{};
+	memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	memoryAllocateInfo.pNext = VK_NULL_HANDLE;
+	memoryAllocateInfo.memoryTypeIndex = heapIndex;
+	memoryAllocateInfo.allocationSize = memRequirements.size;
+	vkAllocateMemory(device, &memoryAllocateInfo, VK_NULL_HANDLE, &deviceMemory);
+	vkBindBufferMemory(device, buffer, deviceMemory, 0);
+	assert(deviceMemory);
+}
+
+// UpdateBufferAndMemory
+void VulkanDeviceInfo::UpdateBufferAndMemory(const void* data, VkDeviceSize size, VkBuffer buffer, VkDeviceMemory deviceMemory)
+{
+	assert(0 && "not implemented");
 }
 
 //////////////////////////////////////////////////////////////////////////

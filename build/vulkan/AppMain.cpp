@@ -157,6 +157,13 @@ void CAppMain::Init(const HWND hWnd)
 
 	mRenderFinishedSemaphore = CreateSemaphore(mDeviceInfo.device);
 	assert(mRenderFinishedSemaphore);
+
+	VkBuffer buffer = VK_NULL_HANDLE;
+	VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
+	//mDeviceInfo.AllocateBuffer(1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, buffer, deviceMemory);
+	mDeviceInfo.AllocateBufferAndMemory(1024, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, buffer, deviceMemory);
+	vkFreeMemory(mDeviceInfo.device, deviceMemory, VK_NULL_HANDLE);
+	vkDestroyBuffer(mDeviceInfo.device, buffer, VK_NULL_HANDLE);
 }
 
 // Created SL-160225

@@ -92,9 +92,14 @@ struct VulkanDeviceInfo
 	// find functions
 	void FindPresentQueueFamilyIndexes(uint32_t& graphicsIndex, uint32_t& presentIndex) const;
 	uint32_t FindQueueFamilyIndexByFlags(uint32_t queueFlags) const;
-	uint32_t FindMemoryHeapIndexByFlags(uint32_t propertyFlags) const;
+	uint32_t FindMemoryHeapIndexByFlags(VkMemoryPropertyFlags propertyFlags) const;
+	uint32_t FindMemoryHeapIndexByBits(uint32_t bits, VkMemoryPropertyFlags propertyFlags) const;
 	VkSurfaceFormatKHR FindSurfaceFormat() const;
 	VkPresentModeKHR FindPresentMode() const;
+
+	// allocate functions
+	void AllocateBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VkDeviceMemory& deviceMemory);
+	void UpdateBufferAndMemory(const void* data, VkDeviceSize size, VkBuffer buffer, VkDeviceMemory deviceMemory);
 };
 
 // VulkanSwapchainInfo

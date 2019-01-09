@@ -64,57 +64,16 @@ void FillCommandBuffer(VkCommandBuffer commandBuffer, VkPipeline graphicsPipelin
 
 	// GO RENDER
 	vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-	//vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
-	//vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, VK_NULL_HANDLE);
-	//vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
 	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+	
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 	vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+	
 	vkCmdEndRenderPass(commandBuffer);
 
 	// vkEndCommandBuffer
 	VK_CHECK(vkEndCommandBuffer(commandBuffer));
-}
-
-
-// AllocateAndBindDeviceMemoryForBuffer
-VkDeviceMemory AllocateAndBindDeviceMemoryForBuffer(VkDevice device, VkBuffer buffer, uint32_t memoryTypeIndex = 0)
-{
-	// handles
-	VkResult result = VK_SUCCESS;
-	VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
-
-	// VkMemoryRequirements
-	VkMemoryRequirements memoryRequirements;
-	vkGetBufferMemoryRequirements(device, buffer, &memoryRequirements);
-
-	// VkMemoryAllocateInfo
-	VkMemoryAllocateInfo memoryAllocateInfo = {};
-	memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	memoryAllocateInfo.allocationSize = memoryRequirements.size;
-	memoryAllocateInfo.memoryTypeIndex = memoryTypeIndex;
-	result = vkAllocateMemory(device, &memoryAllocateInfo, nullptr, &deviceMemory);
-	result = vkBindBufferMemory(device, buffer, deviceMemory, 0);
-
-	// return
-	return deviceMemory;
-}
-
-// MapDeviceMemory
-VkResult MapDeviceMemory(VkDevice device, VkDeviceMemory deviceMemory, const void* srcData, VkDeviceSize size)
-{
-	// handles
-	VkResult result = VK_SUCCESS;
-
-	// vkMapMemory/vkUnmapMemory
-	void* data = nullptr;
-	result = vkMapMemory(device, deviceMemory, 0, size, 0, &data);
-	memcpy(data, srcData, (size_t)size);
-	vkUnmapMemory(device, deviceMemory);
-
-	// return
-	return result;
 }
 
 // Created SL-160225
@@ -198,8 +157,6 @@ void CAppMain::Init(const HWND hWnd)
 
 	mRenderFinishedSemaphore = CreateSemaphore(mDeviceInfo.device);
 	assert(mRenderFinishedSemaphore);
-
-	mSwapchainInfo.ReInitialize(mDeviceInfo, mSurface, mRenderPass);
 }
 
 // Created SL-160225
@@ -213,16 +170,17 @@ void CAppMain::Destroy()
 	vkDestroyShaderModule(mDeviceInfo.device, mShaderModuleFS, nullptr);
 	vkDestroyShaderModule(mDeviceInfo.device, mShaderModuleVS, nullptr);
 	vkDestroyRenderPass(mDeviceInfo.device, mRenderPass, nullptr);
+	mSwapchainInfo.DeInitialize();
 	vkDestroySurfaceKHR(mInstanceInfo.instance, mSurface, nullptr);
+	mDeviceInfo.DeInitialize();
+	mInstanceInfo.DeInitialize();
 }
 
 // Created SL-160225
 void CAppMain::Render()
 {
-	uint32_t imageIndex = 0;
-
-	// vkAcquireNextImageKHR
-	VK_CHECK(vkAcquireNextImageKHR(mDeviceInfo.device, mSwapchainInfo.swapchain, UINT64_MAX, mImageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex));
+	// begin frame
+	VkFramebuffer framebuffer = mSwapchainInfo.BeginFrame(mImageAvailableSemaphore);
 
 	// VkExtent2D
 	VkExtent2D extend2d;
@@ -230,33 +188,13 @@ void CAppMain::Render()
 	extend2d.width = mSwapchainInfo.viewportWidth;
 
 	// refill command buffer (RENDER CURRENT FRAME TO CURRENT FRAME BUFFER)
-	FillCommandBuffer(mCommandBuffer, mGraphicsPipeline, mRenderPass, mSwapchainInfo.framebuffers[imageIndex], extend2d);
+	FillCommandBuffer(mCommandBuffer, mGraphicsPipeline, mRenderPass, framebuffer, extend2d);
 
-	// VkSubmitInfo
-	VkSubmitInfo submitInfo{};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pWaitSemaphores = &mImageAvailableSemaphore;
-	submitInfo.signalSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = &mRenderFinishedSemaphore;
-	submitInfo.pWaitDstStageMask = nullptr;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &mCommandBuffer;
+	// submit render command buffer
+	QueueSubmit(mDeviceInfo.queueGraphics, mCommandBuffer, mImageAvailableSemaphore, mRenderFinishedSemaphore);
 
-	// vkQueueSubmit
-	VK_CHECK(vkQueueSubmit(mDeviceInfo.queueGraphics, 1, &submitInfo, VK_NULL_HANDLE));
-
-	// VkPresentInfoKHR
-	VkPresentInfoKHR presentInfo{};
-	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-	presentInfo.waitSemaphoreCount = 1;
-	presentInfo.pWaitSemaphores = &mRenderFinishedSemaphore;
-	presentInfo.swapchainCount = 1;
-	presentInfo.pSwapchains = &mSwapchainInfo.swapchain;
-	presentInfo.pImageIndices = &imageIndex;
-	presentInfo.pResults = nullptr; // Optional
-	VK_CHECK(vkQueuePresentKHR(mDeviceInfo.queuePresent, &presentInfo));
-	VK_CHECK(vkQueueWaitIdle(mDeviceInfo.queuePresent));
+	// end frame
+	mSwapchainInfo.EndFrame(mRenderFinishedSemaphore);
 }
 
 // Created SL-160225
@@ -299,4 +237,3 @@ void CAppMain::SetViewportSize(WORD viewportWidth, WORD viewportHeight)
 	VK_CHECK(vkQueueWaitIdle(mDeviceInfo.queuePresent));
 	mSwapchainInfo.ReInitialize(mDeviceInfo, mSurface, mRenderPass);
 };
-

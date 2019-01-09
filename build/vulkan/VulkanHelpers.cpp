@@ -345,6 +345,7 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 {
 	// store parameters
 	this->device = deviceInfo.device;
+	this->queuePresent = deviceInfo.queuePresent;
 	this->surface = surface;
 	this->renderPass = renderPass;
 
@@ -463,6 +464,30 @@ void VulkanSwapchainInfo::ReInitialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKH
 	DeInitialize();
 	Initialize(deviceInfo, surface, renderPass);
 }
+
+// BeginFrame
+VkFramebuffer VulkanSwapchainInfo::BeginFrame(VkSemaphore signalSemaphore)
+{
+	VK_CHECK(vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, signalSemaphore, VK_NULL_HANDLE, &currentFramebufferIndex));
+	return framebuffers[currentFramebufferIndex];
+}
+
+// EndFrame
+void VulkanSwapchainInfo::EndFrame(VkSemaphore waitSemaphore)
+{
+	// VkPresentInfoKHR
+	VkPresentInfoKHR presentInfo{};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.waitSemaphoreCount = 1;
+	presentInfo.pWaitSemaphores = &waitSemaphore;
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = &swapchain;
+	presentInfo.pImageIndices = &currentFramebufferIndex;
+	presentInfo.pResults = nullptr; // Optional
+	VK_CHECK(vkQueuePresentKHR(queuePresent, &presentInfo));
+	VK_CHECK(vkQueueWaitIdle(queuePresent));
+}
+
 
 //////////////////////////////////////////////////////////////////////////
 // Utilities
@@ -976,4 +1001,22 @@ VkSemaphore CreateSemaphore(VkDevice device)
 	VkSemaphore semaphore = VK_NULL_HANDLE;
 	VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, VK_NULL_HANDLE, &semaphore));
 	return semaphore;
+}
+
+// QueueSubmit
+void QueueSubmit(VkQueue queue, VkCommandBuffer commandBuffer, VkSemaphore waitSemaphore, VkSemaphore signalSemaphore)
+{
+	// VkSubmitInfo
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = &waitSemaphore;
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = &signalSemaphore;
+	submitInfo.pWaitDstStageMask = VK_NULL_HANDLE;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+
+	// vkQueueSubmit
+	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
 }

@@ -103,8 +103,12 @@ struct VulkanSwapchainInfo
 private:
 	// base handles
 	VkDevice     device = VK_NULL_HANDLE;
+	VkQueue      queuePresent = VK_NULL_HANDLE;
 	VkSurfaceKHR surface = VK_NULL_HANDLE;
 	VkRenderPass renderPass = VK_NULL_HANDLE;
+
+	// current frame index
+	uint32_t currentFramebufferIndex = UINT32_MAX;
 public:
 	// swapchain
 	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
@@ -130,6 +134,10 @@ public:
 	void Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface, VkRenderPass renderPass);
 	void DeInitialize();
 	void ReInitialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface, VkRenderPass renderPass);
+
+	// frame processing
+	VkFramebuffer BeginFrame(VkSemaphore signalSemaphore);
+	void EndFrame(VkSemaphore waitSemaphore);
 };
 
 // InitDeviceQueueCreateInfo
@@ -181,3 +189,6 @@ VkCommandBuffer AllocateCommandBuffer(VkDevice device, VkCommandPool commandPool
 
 // CreateSemaphore
 VkSemaphore CreateSemaphore(VkDevice device);
+
+// QueueSubmit
+void QueueSubmit(VkQueue queue, VkCommandBuffer commandBuffer, VkSemaphore waitSemaphore, VkSemaphore signalSemaphore);

@@ -90,9 +90,9 @@ struct VulkanDeviceInfo
 	void DeInitialize();
 
 	// find functions
-	uint32_t FindMemoryHeapIndexByFlags(uint32_t propertyFlags) const;
+	void FindPresentQueueFamilyIndexes(uint32_t& graphicsIndex, uint32_t& presentIndex) const;
 	uint32_t FindQueueFamilyIndexByFlags(uint32_t queueFlags) const;
-	uint32_t FindPresentQueueFamilyIndex() const;
+	uint32_t FindMemoryHeapIndexByFlags(uint32_t propertyFlags) const;
 	VkSurfaceFormatKHR FindSurfaceFormat() const;
 	VkPresentModeKHR FindPresentMode() const;
 };

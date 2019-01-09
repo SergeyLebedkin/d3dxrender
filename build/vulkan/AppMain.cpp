@@ -46,12 +46,31 @@ void FillCommandBuffer(VkCommandBuffer commandBuffer, VkPipeline graphicsPipelin
 	renderPassBeginInfo.clearValueCount = 2;
 	renderPassBeginInfo.pClearValues = clearColors;
 
+	// VkViewport - viewport
+	VkViewport viewport{};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = (float)extent2D.width;
+	viewport.height = (float)extent2D.height;
+	viewport.minDepth = 0.5f;
+	viewport.maxDepth = 1.0f;
+
+	// VkRect2D - scissor
+	VkRect2D scissor{};
+	scissor.offset.x = 0;
+	scissor.offset.y = 0;
+	scissor.extent.width = extent2D.width;
+	scissor.extent.height = extent2D.height;
+
 	// GO RENDER
 	vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 	//vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 	//vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, VK_NULL_HANDLE);
 	//vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
+	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+	vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 	vkCmdEndRenderPass(commandBuffer);
 
 	// vkEndCommandBuffer
@@ -165,7 +184,7 @@ void CAppMain::Init(const HWND hWnd)
 	assert(mPipelineLayout);
 
 	mGraphicsPipeline = CreateGraphicsPipeline(mDeviceInfo.device, vertexInputState, mShaderModuleVS, mShaderModuleFS, mPipelineLayout,
-		/*mRenderPass*/nullptr, mSwapchainInfo.viewportWidth, mSwapchainInfo.viewportWidth);
+		mRenderPass, mSwapchainInfo.viewportWidth, mSwapchainInfo.viewportWidth);
 	assert(mGraphicsPipeline);
 
 	mCommandPool = CreateCommandPool(mDeviceInfo.device, mDeviceInfo.queueFamilyIndexGraphics);
@@ -243,6 +262,16 @@ void CAppMain::Render()
 // Created SL-160225
 void CAppMain::Update(float deltaTime)
 {
+	static float time = 0.0f;
+	static uint32_t frames = 0;
+	time += deltaTime;
+	frames++;
+	if (time >= 1.0f) {
+		std::cout << "frames " << frames << " in " << time << " seconds" << std::endl;
+		time = 0.0f;
+		frames = 0;
+	}
+
 	// mat world
 	static float angle = 0.0f;
 	DirectX::XMMATRIX matRotate = DirectX::XMMatrixRotationZ(angle += deltaTime);

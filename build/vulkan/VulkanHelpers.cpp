@@ -53,7 +53,7 @@ void VulkanInstanceInfo::Initialize(
 #endif
 
 	// VkApplicationInfo
-	VkApplicationInfo applicationInfo = {};
+	VkApplicationInfo applicationInfo{};
 	applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	applicationInfo.pNext = VK_NULL_HANDLE;
 	applicationInfo.pApplicationName = appName;
@@ -63,7 +63,7 @@ void VulkanInstanceInfo::Initialize(
 	applicationInfo.apiVersion = apiVersion;
 
 	// VkInstanceCreateInfo
-	VkInstanceCreateInfo instanceCreateInfo = {};
+	VkInstanceCreateInfo instanceCreateInfo{};
 	instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	instanceCreateInfo.pNext = VK_NULL_HANDLE;
 	instanceCreateInfo.pApplicationInfo = &applicationInfo;
@@ -75,6 +75,14 @@ void VulkanInstanceInfo::Initialize(
 	// vkCreateInstance
 	VK_CHECK(vkCreateInstance(&instanceCreateInfo, VK_NULL_HANDLE, &instance));
 	assert(instance);
+
+	// get physical devices count
+	uint32_t physicalDevicesCount = 0;
+	VK_CHECK(vkEnumeratePhysicalDevices(instance, &physicalDevicesCount, nullptr));
+	assert(physicalDevicesCount);
+	// get physical devices list
+	physicalDevices.resize(physicalDevicesCount);
+	VK_CHECK(vkEnumeratePhysicalDevices(instance, &physicalDevicesCount, physicalDevices.data()));
 }
 
 // DeInitialize
@@ -92,16 +100,7 @@ void VulkanInstanceInfo::DeInitialize()
 
 // FindPhysicalDevice
 VkPhysicalDevice VulkanInstanceInfo::FindPhysicalDevice(VkPhysicalDeviceType physicalDeviceType)
-{
-	// get physical devices count
-	uint32_t physicalDevicesCount = 0;
-	VK_CHECK(vkEnumeratePhysicalDevices(instance, &physicalDevicesCount, nullptr));
-	assert(physicalDevicesCount);
-	// get physical devices list
-	physicalDevices.resize(physicalDevicesCount);
-	VK_CHECK(vkEnumeratePhysicalDevices(instance, &physicalDevicesCount, physicalDevices.data()));
-
-	// find discrete GPU physical device and physical device features and properties
+{	
 	VkPhysicalDeviceFeatures physicalDeviceFeaturesGPU;
 	VkPhysicalDeviceProperties physicalDevicePropertiesGPU;
 	for (const auto& physicalDevice : physicalDevices)
@@ -110,7 +109,7 @@ VkPhysicalDevice VulkanInstanceInfo::FindPhysicalDevice(VkPhysicalDeviceType phy
 		VkPhysicalDeviceProperties physicalDeviceProperties;
 		vkGetPhysicalDeviceFeatures(physicalDevice, &physicalDeviceFeatures);
 		vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
-		if (physicalDeviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+		if (physicalDeviceProperties.deviceType & physicalDeviceType)
 		{
 			physicalDeviceFeaturesGPU = physicalDeviceFeatures;
 			physicalDevicePropertiesGPU = physicalDeviceProperties;
@@ -184,10 +183,11 @@ void VulkanDeviceInfo::Initialize(VkPhysicalDevice physicalDevice, VkSurfaceKHR 
 	memoryHostVisibleTypeIndex = FindMemoryHeapIndexByFlags(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 	// get graphics, queue and transfer queue family property index
-	queueFamilyIndexGraphics = FindQueueFamilyIndexByFlags(VK_QUEUE_GRAPHICS_BIT);
 	queueFamilyIndexCompute = FindQueueFamilyIndexByFlags(VK_QUEUE_COMPUTE_BIT);
 	queueFamilyIndexTransfer = FindQueueFamilyIndexByFlags(VK_QUEUE_TRANSFER_BIT);
-	queueFamilyIndexPresent = FindPresentQueueFamilyIndex();
+	FindPresentQueueFamilyIndexes(queueFamilyIndexGraphics, queueFamilyIndexPresent);
+	assert(queueFamilyIndexGraphics < UINT32_MAX);
+	assert(queueFamilyIndexPresent < UINT32_MAX);
 
 	// deviceQueueCreateInfos
 	std::vector<VkDeviceQueueCreateInfo> deviceQueueCreateInfos;
@@ -246,16 +246,28 @@ void VulkanDeviceInfo::DeInitialize()
 	device = VK_NULL_HANDLE;
 }
 
-// FindMemoryHeapIndexByFlags
-uint32_t VulkanDeviceInfo::FindMemoryHeapIndexByFlags(uint32_t propertyFlags) const
+// FindPresentQueueFamilyIndex
+void VulkanDeviceInfo::FindPresentQueueFamilyIndexes(uint32_t& graphicsIndex, uint32_t& presentIndex) const
 {
-	// find device local memory type index
-	for (uint32_t i = 0; i < deviceMemoryProperties.memoryTypeCount; i++)
-		if ((deviceMemoryProperties.memoryTypes[i].propertyFlags & propertyFlags) == propertyFlags)
-			return i;
-	assert(0);
-	// return default
-	return UINT32_MAX;
+	graphicsIndex = UINT32_MAX;
+	presentIndex = UINT32_MAX;
+	// find presentation queue family property index
+	for (uint32_t i = 0; i < queueFamilyProperties.size(); i++)
+	{
+		if ((queueFamilyProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+			graphicsIndex = i;
+			// get present queue family property index
+			VkBool32 presentSupport = false;
+			vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport);
+			if (presentSupport) 
+			{
+				graphicsIndex = i;
+				presentIndex = i;
+			}
+		}
+	}
+	assert(graphicsIndex < UINT32_MAX);
+	assert(presentIndex < UINT32_MAX);
 }
 
 // FindQueueFamilyIndexByFlags
@@ -270,21 +282,16 @@ uint32_t VulkanDeviceInfo::FindQueueFamilyIndexByFlags(uint32_t queueFlags) cons
 	return UINT32_MAX;
 }
 
-// FindPresentQueueFamilyIndex
-uint32_t VulkanDeviceInfo::FindPresentQueueFamilyIndex() const
+// FindMemoryHeapIndexByFlags
+uint32_t VulkanDeviceInfo::FindMemoryHeapIndexByFlags(uint32_t propertyFlags) const
 {
-	// find presentation queue family property index
-	for (uint32_t i = 0; i < queueFamilyProperties.size(); i++)
-	{
-		// get present queue family property index
-		VkBool32 presentSupport = false;
-		vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport);
-		if (presentSupport)
+	// find device local memory type index
+	for (uint32_t i = 0; i < deviceMemoryProperties.memoryTypeCount; i++)
+		if ((deviceMemoryProperties.memoryTypes[i].propertyFlags & propertyFlags) == propertyFlags)
 			return i;
-	}
 	assert(0);
 	// return default
-	return MAXUINT32;
+	return UINT32_MAX;
 }
 
 // FindSurfaceFormat
@@ -352,7 +359,7 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 	viewportHeight = surfaceCapabilitiesKHR.currentExtent.height;
 
 	// VkSwapchainCreateInfoKHR
-	VkSwapchainCreateInfoKHR swapchainCreateInfoKHR = {};
+	VkSwapchainCreateInfoKHR swapchainCreateInfoKHR{};
 	swapchainCreateInfoKHR.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	swapchainCreateInfoKHR.surface = surface;
 	swapchainCreateInfoKHR.minImageCount = surfaceCapabilitiesKHR.maxImageCount;
@@ -496,7 +503,7 @@ VkPipelineVertexInputStateCreateInfo InitPipelineVertexInputStateCreateInfo(
 VkSurfaceKHR CreateSurface(VkInstance instance, HWND hWnd)
 {
 	// VkWin32SurfaceCreateInfoKHR
-	VkWin32SurfaceCreateInfoKHR win32SurfaceCreateInfoKHR = {};
+	VkWin32SurfaceCreateInfoKHR win32SurfaceCreateInfoKHR{};
 	win32SurfaceCreateInfoKHR.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
 	win32SurfaceCreateInfoKHR.pNext = VK_NULL_HANDLE;
 	win32SurfaceCreateInfoKHR.flags = 0;
@@ -569,7 +576,7 @@ VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format, VkI
 VkFramebuffer CreateFramebuffer(VkDevice device, VkRenderPass renderPass, std::vector<VkImageView>& imageViews, uint32_t width, uint32_t height)
 {
 	// VkFramebufferCreateInfo 
-	VkFramebufferCreateInfo framebufferCreateInfo = {};
+	VkFramebufferCreateInfo framebufferCreateInfo{};
 	framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 	framebufferCreateInfo.pNext = VK_NULL_HANDLE;
 	framebufferCreateInfo.flags = 0;
@@ -590,7 +597,7 @@ VkFramebuffer CreateFramebuffer(VkDevice device, VkRenderPass renderPass, std::v
 VkBuffer CreateBuffer(VkDevice device, VkDeviceSize size, VkBufferUsageFlags usage)
 {
 	// VkBufferCreateInfo
-	VkBufferCreateInfo bufferCreateInfo = {};
+	VkBufferCreateInfo bufferCreateInfo{};
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferCreateInfo.size = size;
 	bufferCreateInfo.usage = usage;
@@ -620,7 +627,7 @@ VkShaderModule CreateShaderModuleFromFile(VkDevice device, const char* fileName)
 	file.close();
 
 	// VkShaderModuleCreateInfo - fragShaderModuleCreateInfo
-	VkShaderModuleCreateInfo shaderModuleCreateInfo = {};
+	VkShaderModuleCreateInfo shaderModuleCreateInfo{};
 	shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 	shaderModuleCreateInfo.codeSize = (uint32_t)code.size();
 	shaderModuleCreateInfo.pCode = (uint32_t *)code.data();
@@ -685,7 +692,7 @@ VkRenderPass CreateRenderPass(VkDevice device)
 	//////////////////////////////////////////////////////////////////////////
 
 	// VkRenderPassCreateInfo
-	VkRenderPassCreateInfo renderPassCreateInfo = {};
+	VkRenderPassCreateInfo renderPassCreateInfo{};
 	renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 	renderPassCreateInfo.attachmentCount = (uint32_t)attachmentDescriptions.size();
 	renderPassCreateInfo.pAttachments = attachmentDescriptions.data();
@@ -702,7 +709,7 @@ VkRenderPass CreateRenderPass(VkDevice device)
 VkPipelineLayout CreatePipelineLayout(VkDevice device)
 {
 	// VkPipelineLayoutCreateInfo
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.pNext = VK_NULL_HANDLE;
 	pipelineLayoutInfo.flags = 0;
@@ -883,7 +890,7 @@ VkPipeline CreateGraphicsPipeline(
 	//////////////////////////////////////////////////////////////////////////
 
 	// VkDynamicState - dynamicStates
-	std::vector<VkDynamicState> dynamicStates = { VK_DYNAMIC_STATE_LINE_WIDTH };
+	std::vector<VkDynamicState> dynamicStates = { VK_DYNAMIC_STATE_LINE_WIDTH, VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
 
 	// VkPipelineDynamicStateCreateInfo - dynamicState
 	VkPipelineDynamicStateCreateInfo dynamicState{};
@@ -927,7 +934,7 @@ VkPipeline CreateGraphicsPipeline(
 VkCommandPool CreateCommandPool(VkDevice device, uint32_t queueIndex)
 {
 	// VkCommandPoolCreateInfo
-	VkCommandPoolCreateInfo commandPoolCreateInfo = {};
+	VkCommandPoolCreateInfo commandPoolCreateInfo{};
 	commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	commandPoolCreateInfo.pNext = VK_NULL_HANDLE;
 	commandPoolCreateInfo.flags = 0;
@@ -943,7 +950,7 @@ VkCommandPool CreateCommandPool(VkDevice device, uint32_t queueIndex)
 VkCommandBuffer AllocateCommandBuffer(VkDevice device, VkCommandPool commandPool, VkCommandBufferLevel commandBufferLevel)
 {
 	// VkCommandBufferAllocateInfo
-	VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
+	VkCommandBufferAllocateInfo commandBufferAllocateInfo{};
 	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	commandBufferAllocateInfo.pNext = VK_NULL_HANDLE;
 	commandBufferAllocateInfo.commandPool = commandPool;
@@ -960,7 +967,7 @@ VkCommandBuffer AllocateCommandBuffer(VkDevice device, VkCommandPool commandPool
 VkSemaphore CreateSemaphore(VkDevice device)
 {
 	// VkSemaphoreCreateInfo
-	VkSemaphoreCreateInfo semaphoreCreateInfo = {};
+	VkSemaphoreCreateInfo semaphoreCreateInfo{};
 	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 	semaphoreCreateInfo.pNext = VK_NULL_HANDLE;
 	semaphoreCreateInfo.flags = 0;

@@ -366,6 +366,53 @@ VkPresentModeKHR VulkanDeviceInfo::FindPresentMode() const
 	return presentModes[0];
 }
 
+// CopyBuffers
+void VulkanDeviceInfo::CopyBuffers(VkDeviceSize size, VkBuffer srcBuffer, VkBuffer dstBuffer) const
+{
+	// VkCommandBufferAllocateInfo
+	VkCommandBufferAllocateInfo commandBufferAllocateInfo{};
+	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	commandBufferAllocateInfo.pNext = VK_NULL_HANDLE;
+	commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	commandBufferAllocateInfo.commandPool = commandPool;
+	commandBufferAllocateInfo.commandBufferCount = 1;
+
+	// VkCommandBuffer
+	VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+	VK_CHECK(vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &commandBuffer));
+	assert(commandBuffer);
+
+	// VkCommandBufferBeginInfo
+	VkCommandBufferBeginInfo commandBufferBeginInfo{};
+	commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	commandBufferBeginInfo.pNext = VK_NULL_HANDLE;
+	commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	commandBufferBeginInfo.pInheritanceInfo = nullptr; // Optional
+	VK_CHECK(vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo));
+
+	// VkBufferCopy
+	VkBufferCopy bufferCopy{};
+	bufferCopy.srcOffset = 0;
+	bufferCopy.dstOffset = 0;
+	bufferCopy.size = size;
+	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &bufferCopy);
+
+	// vkEndCommandBuffer
+	VK_CHECK(vkEndCommandBuffer(commandBuffer));
+
+	// submit and wait
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.pNext = VK_NULL_HANDLE;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+	VK_CHECK(vkQueueSubmit(queueGraphics, 1, &submitInfo, VK_NULL_HANDLE));
+	VK_CHECK(vkQueueWaitIdle(queueGraphics));
+
+	// free command buffer
+	vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+}
+
 // AllocateBufferAndMemory
 void VulkanDeviceInfo::AllocateBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VkDeviceMemory& deviceMemory)
 {
@@ -444,48 +491,10 @@ void VulkanDeviceInfo::UpdateBufferAndMemory(const void* data, VkDeviceSize size
 		memcpy(stagingData, data, size);
 		vkUnmapMemory(device, stagingDeviceMemory);
 
-		// VkCommandBufferAllocateInfo
-		VkCommandBufferAllocateInfo commandBufferAllocateInfo{};
-		commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		commandBufferAllocateInfo.pNext = VK_NULL_HANDLE;
-		commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		commandBufferAllocateInfo.commandPool = commandPool;
-		commandBufferAllocateInfo.commandBufferCount = 1;
+		// copy buffers
+		CopyBuffers(size, stagingBuffer, buffer);
 
-		// VkCommandBuffer
-		VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-		VK_CHECK(vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &commandBuffer));
-		assert(commandBuffer);
-
-		// VkCommandBufferBeginInfo
-		VkCommandBufferBeginInfo commandBufferBeginInfo{};
-		commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		commandBufferBeginInfo.pNext = VK_NULL_HANDLE;
-		commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-		commandBufferBeginInfo.pInheritanceInfo = nullptr; // Optional
-		VK_CHECK(vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo));
-
-		// VkBufferCopy
-		VkBufferCopy bufferCopy{};
-		bufferCopy.srcOffset = 0;
-		bufferCopy.dstOffset = 0;
-		bufferCopy.size = size;
-		vkCmdCopyBuffer(commandBuffer, stagingBuffer, buffer, 1, &bufferCopy);
-
-		// vkEndCommandBuffer
-		VK_CHECK(vkEndCommandBuffer(commandBuffer));
-
-		// submit and wait
-		VkSubmitInfo submitInfo{};
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		submitInfo.pNext = VK_NULL_HANDLE;
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &commandBuffer;
-		VK_CHECK(vkQueueSubmit(queueGraphics, 1, &submitInfo, VK_NULL_HANDLE));
-		VK_CHECK(vkQueueWaitIdle(queueGraphics));
-
-		// free staging memory
-		vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+		// free staginf buffer and memory
 		vkFreeMemory(device, stagingDeviceMemory, VK_NULL_HANDLE);
 		vkDestroyBuffer(device, stagingBuffer, VK_NULL_HANDLE);
 	}
@@ -597,18 +606,14 @@ void VulkanSwapchainInfo::DeInitialize()
 {
 	vkDestroyImage(device, imageDepthStencil, VK_NULL_HANDLE);
 	imageDepthStencil = VK_NULL_HANDLE;
-
 	vkDestroyImageView(device, imageViewDepthStencil, VK_NULL_HANDLE);
 	imageViewDepthStencil = VK_NULL_HANDLE;
-
 	vkFreeMemory(device, memoryDepthStencil, VK_NULL_HANDLE);
 	memoryDepthStencil = VK_NULL_HANDLE;
-
 	for (const auto& imageViewColor : imageViewColors)
 		vkDestroyImageView(device, imageViewColor, VK_NULL_HANDLE);
 	for (const auto& framebuffer : framebuffers)
 		vkDestroyFramebuffer(device, framebuffer, VK_NULL_HANDLE);
-
 	vkDestroySwapchainKHR(device, swapchain, VK_NULL_HANDLE);
 	swapchain = VK_NULL_HANDLE;
 }

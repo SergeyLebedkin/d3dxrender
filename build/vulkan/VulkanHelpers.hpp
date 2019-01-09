@@ -100,6 +100,7 @@ struct VulkanDeviceInfo
 	uint32_t CheckMemoryHeapIndexByBits(uint32_t index, VkMemoryPropertyFlags propertyFlags) const;
 	VkSurfaceFormatKHR FindSurfaceFormat() const;
 	VkPresentModeKHR FindPresentMode() const;
+	void CopyBuffers(VkDeviceSize size, VkBuffer srcBuffer, VkBuffer dstBuffer) const;
 
 	// allocate functions
 	void AllocateBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VkDeviceMemory& deviceMemory);

@@ -1,7 +1,9 @@
 #pragma once
 
-#include <vulkan/vulkan.h>
+#include "VmaUsage.h"
 #include <vector>
+#include <list>
+#include <map>
 
 #ifdef _DEBUG
 #define VK_CHECK(func) { VkResult result = func; assert(result == VK_SUCCESS); };
@@ -57,6 +59,7 @@ struct VulkanDeviceInfo
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 	VkSurfaceKHR     surface = VK_NULL_HANDLE;
 	VkDevice         device = VK_NULL_HANDLE;
+	VmaAllocator     allocator = VK_NULL_HANDLE;
 
 	// properties
 	VkPhysicalDeviceFeatures             deviceFeatures;
@@ -92,7 +95,7 @@ struct VulkanDeviceInfo
 		std::vector<const char *>& enabledExtensionNames);
 	void DeInitialize();
 
-	// util functions
+	// utils functions
 	void FindPresentQueueFamilyIndexes(uint32_t& graphicsIndex, uint32_t& presentIndex) const;
 	uint32_t FindQueueFamilyIndexByFlags(uint32_t queueFlags) const;
 	uint32_t FindMemoryHeapIndexByFlags(VkMemoryPropertyFlags propertyFlags) const;
@@ -103,8 +106,8 @@ struct VulkanDeviceInfo
 	void CopyBuffers(VkDeviceSize size, VkBuffer srcBuffer, VkBuffer dstBuffer) const;
 
 	// allocate functions
-	void AllocateBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VkDeviceMemory& deviceMemory);
-	void UpdateBufferAndMemory(const void* data, VkDeviceSize size, VkBuffer buffer, VkDeviceMemory deviceMemory);
+	void AllocateBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VmaAllocation& allocation);
+	void UpdateBufferAndMemory(const void* data, VkDeviceSize size, VkBuffer buffer, VmaAllocation& allocation);
 };
 
 // VulkanSwapchainInfo
@@ -113,6 +116,7 @@ struct VulkanSwapchainInfo
 private:
 	// base handles
 	VkDevice     device = VK_NULL_HANDLE;
+	VmaAllocator allocator = VK_NULL_HANDLE;
 	VkQueue      queuePresent = VK_NULL_HANDLE;
 	VkSurfaceKHR surface = VK_NULL_HANDLE;
 	VkRenderPass renderPass = VK_NULL_HANDLE;
@@ -135,7 +139,7 @@ public:
 	// framebuffer data
 	VkImage                    imageDepthStencil = VK_NULL_HANDLE;
 	VkImageView                imageViewDepthStencil = VK_NULL_HANDLE;
-	VkDeviceMemory             memoryDepthStencil = VK_NULL_HANDLE;
+	VmaAllocation              imageDepthStencilAllocation = VK_NULL_HANDLE;
 	std::vector<VkImage>       imageColors{};
 	std::vector<VkImageView>   imageViewColors{};
 	std::vector<VkFramebuffer> framebuffers{};
@@ -158,11 +162,11 @@ VkPipelineVertexInputStateCreateInfo InitPipelineVertexInputStateCreateInfo(
 	std::vector<VkVertexInputBindingDescription>& vertexBindingDescriptions,
 	std::vector<VkVertexInputAttributeDescription>& vertexAttributeDescriptions);
 
+// InitImageCreateInfo
+VkImageCreateInfo InitImageCreateInfo(VkFormat format, VkImageUsageFlags usage, uint32_t width, uint32_t height);
+
 // CreateSurface
 VkSurfaceKHR CreateSurface(VkInstance instance, HWND hWnd);
-
-// CreateImage
-VkImage CreateImage(VkDevice device, VkFormat format, VkImageUsageFlags usage, uint32_t width, uint32_t height);
 
 // CreateImageView
 VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectMask);

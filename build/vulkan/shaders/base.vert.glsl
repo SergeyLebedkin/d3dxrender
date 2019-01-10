@@ -2,23 +2,20 @@
 #extension GL_ARB_separate_shader_objects : enable
 
 // attributes
-layout(location = 0) in vec4 aPosition;
-layout(location = 1) in vec4 aColor;
-layout(location = 2) in vec2 aTexCoord;
+layout(location = 0) in vec3 aPosition;
+layout(location = 1) in vec3 aNormal;
 
 // outputs
 layout(location = 0) out vec4 vColor;
-layout(location = 1) out vec2 vTexCoord;
 
 // main
 void main()
 {
 	// copy in to out
-	vColor = aColor;
-	vTexCoord = aTexCoord;
+	vColor = vec4(aNormal*0.5 + 0.5, 1.0);
 
 	// find position
-	gl_Position = vec4(aPosition.xyz*0.5, 1.0);
+	gl_Position = vec4(aPosition.xyz/32.0, 1.0);
 }
 
 /*

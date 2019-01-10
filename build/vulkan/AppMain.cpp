@@ -1,4 +1,5 @@
 #include "AppMain.hpp"
+#include "Meshes.teapot.h"
 #include <iostream>
 #include <fstream>
 #include <cassert>
@@ -23,7 +24,7 @@ uint16_t indexes[] = { 0, 1, 2, 2, 1, 3 };
 void FillCommandBuffer(
 	VkCommandBuffer commandBuffer, VkPipeline graphicsPipeline,
 	VkRenderPass renderPass, VkFramebuffer framebuffer, VkExtent2D extent2D,
-	VkBuffer vertexBuffer, VkBuffer indexBuffer)
+	VkBuffer vertexBufferPos, VkBuffer vertexBufferNorm, VkBuffer indexBuffer)
 {
 	// VkCommandBufferBeginInfo
 	VkCommandBufferBeginInfo commandBufferBeginInfo = {};
@@ -66,7 +67,9 @@ void FillCommandBuffer(
 	scissor.extent.height = extent2D.height;
 
 	// VkDeviceSize
-	VkDeviceSize offset = 0;
+	VkDeviceSize offsets[] = { 0, 0 };
+
+	VkBuffer buffers[] = { vertexBufferPos, vertexBufferNorm };
 
 	// GO RENDER
 	vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -74,9 +77,9 @@ void FillCommandBuffer(
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 	
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, &offset);
-	vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
-	vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
+	vkCmdBindVertexBuffers(commandBuffer, 0, 2, buffers, offsets);
+	vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdDrawIndexed(commandBuffer, sizeof(teapot_indices)/4, 1, 0, 0, 0);
 	
 	vkCmdEndRenderPass(commandBuffer);
 
@@ -110,14 +113,15 @@ void CAppMain::Init(const HWND hWnd)
 
 	// VkVertexInputBindingDescription - vertexBindingDescriptions
 	std::vector<VkVertexInputBindingDescription> vertexBindingDescriptions{
-		{ 0, sizeof(CUSTOMVERTEX), VK_VERTEX_INPUT_RATE_VERTEX }
+		{ 0, sizeof(float) * 3, VK_VERTEX_INPUT_RATE_VERTEX },
+		{ 1, sizeof(float) * 3, VK_VERTEX_INPUT_RATE_VERTEX },
 	};
 
 	// VkVertexInputAttributeDescription - vertexAttributeDescriptions
 	std::vector<VkVertexInputAttributeDescription> vertexAttributeDescriptions = {
-		{ 0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0 },
-		{ 1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 16 },
-		{ 2, 0, VK_FORMAT_R32G32_SFLOAT, 32 },
+		{ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 },
+		{ 1, 1, VK_FORMAT_R32G32B32_SFLOAT, 0 },
+		//{ 2, 0, VK_FORMAT_R32G32_SFLOAT, 32 },
 	};
 
 	// VkPipelineVertexInputStateCreateInfo
@@ -164,25 +168,31 @@ void CAppMain::Init(const HWND hWnd)
 	assert(mRenderFinishedSemaphore);
 
 	// allocate vertex buffer and device memory
-	mDeviceInfo.AllocateBufferAndMemory(sizeof(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mModelVertexBuffer, mModelVertexDeviceMemory);
-	mDeviceInfo.UpdateBufferAndMemory(vertices, sizeof(vertices), mModelVertexBuffer, mModelVertexDeviceMemory);
-	assert(mModelVertexBuffer);
-	assert(mModelVertexDeviceMemory);
+	mDeviceInfo.AllocateBufferAndMemory(sizeof(teapot_positions), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mModelVertexBufferPos, mModelVertexMemoryPos);
+	mDeviceInfo.UpdateBufferAndMemory(teapot_positions, sizeof(teapot_positions), mModelVertexBufferPos, mModelVertexMemoryPos);
+	assert(mModelVertexBufferPos);
+	assert(mModelVertexMemoryPos);
+
+	// allocate vertex buffer and device memory
+	mDeviceInfo.AllocateBufferAndMemory(sizeof(teapot_normals), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mModelVertexBufferNorm, mModelVertexMemoryNorm);
+	mDeviceInfo.UpdateBufferAndMemory(teapot_normals, sizeof(teapot_normals), mModelVertexBufferNorm, mModelVertexMemoryNorm);
+	assert(mModelVertexBufferNorm);
+	assert(mModelVertexMemoryNorm);
 
 	// allocate index buffer and device memory
-	mDeviceInfo.AllocateBufferAndMemory(sizeof(indexes), VK_BUFFER_USAGE_INDEX_BUFFER_BIT, mModelIndexBuffer, mModelIndexDeviceMemory);
-	mDeviceInfo.UpdateBufferAndMemory(indexes, sizeof(indexes), mModelIndexBuffer, mModelIndexDeviceMemory);
+	mDeviceInfo.AllocateBufferAndMemory(sizeof(teapot_indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT, mModelIndexBuffer, mModelIndexMemory);
+	mDeviceInfo.UpdateBufferAndMemory(teapot_indices, sizeof(teapot_indices), mModelIndexBuffer, mModelIndexMemory);
 	assert(mModelIndexBuffer);
-	assert(mModelIndexDeviceMemory);
+	assert(mModelIndexMemory);
 }
 
 // Created SL-160225
 void CAppMain::Destroy()
 {
-	vkFreeMemory(mDeviceInfo.device, mModelIndexDeviceMemory, VK_NULL_HANDLE);
-	vkFreeMemory(mDeviceInfo.device, mModelVertexDeviceMemory, VK_NULL_HANDLE);
-	vkDestroyBuffer(mDeviceInfo.device, mModelIndexBuffer, VK_NULL_HANDLE);
-	vkDestroyBuffer(mDeviceInfo.device, mModelVertexBuffer, VK_NULL_HANDLE);
+	vmaDestroyBuffer(mDeviceInfo.allocator, mModelIndexBuffer, mModelIndexMemory);
+	vmaDestroyBuffer(mDeviceInfo.allocator, mModelVertexBufferNorm, mModelVertexMemoryNorm);
+	vmaDestroyBuffer(mDeviceInfo.allocator, mModelVertexBufferPos, mModelVertexMemoryPos);
+	
 	vkDestroySemaphore(mDeviceInfo.device, mRenderFinishedSemaphore, VK_NULL_HANDLE);
 	vkDestroySemaphore(mDeviceInfo.device, mImageAvailableSemaphore, VK_NULL_HANDLE);
 	vkDestroyPipeline(mDeviceInfo.device, mGraphicsPipeline, VK_NULL_HANDLE);
@@ -208,7 +218,8 @@ void CAppMain::Render()
 	extend2d.width = mSwapchainInfo.viewportWidth;
 
 	// refill command buffer (RENDER CURRENT FRAME TO CURRENT FRAME BUFFER)
-	FillCommandBuffer(mCommandBuffer, mGraphicsPipeline, mRenderPass, framebuffer, extend2d, mModelVertexBuffer, mModelIndexBuffer);
+	FillCommandBuffer(mCommandBuffer, mGraphicsPipeline, mRenderPass, framebuffer, extend2d, 
+		mModelVertexBufferPos, mModelVertexBufferNorm, mModelIndexBuffer);
 
 	// submit render command buffer
 	QueueSubmit(mDeviceInfo.queueGraphics, mCommandBuffer, mImageAvailableSemaphore, mRenderFinishedSemaphore);

@@ -25,11 +25,14 @@ private:
 	VkSemaphore      mImageAvailableSemaphore = VK_NULL_HANDLE;
 	VkSemaphore      mRenderFinishedSemaphore = VK_NULL_HANDLE;
 
-	// buffers
-	VkBuffer         mModelVertexBuffer = VK_NULL_HANDLE;
+	// vertex
+	VkBuffer         mModelVertexBufferPos = VK_NULL_HANDLE;
+	VkBuffer         mModelVertexBufferNorm = VK_NULL_HANDLE;
+	VmaAllocation    mModelVertexMemoryPos = VK_NULL_HANDLE;
+	VmaAllocation    mModelVertexMemoryNorm = VK_NULL_HANDLE;
+	// index
 	VkBuffer         mModelIndexBuffer = VK_NULL_HANDLE;
-	VkDeviceMemory   mModelVertexDeviceMemory = VK_NULL_HANDLE;
-	VkDeviceMemory   mModelIndexDeviceMemory = VK_NULL_HANDLE;
+	VmaAllocation    mModelIndexMemory = VK_NULL_HANDLE;
 
 	// scene variables
 	DirectX::XMMATRIX mWVP;

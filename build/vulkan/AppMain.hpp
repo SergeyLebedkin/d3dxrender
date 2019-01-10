@@ -3,7 +3,7 @@
 #include <DirectXMath.h>
 #include <windows.h>
 #include <vector>
-#include "VulkanHelpers.hpp"
+#include "vkutils/VulkanHelpers.hpp"
 
 // created SL-160225
 class CAppMain

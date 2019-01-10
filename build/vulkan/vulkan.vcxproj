@@ -207,13 +207,14 @@
   <ItemGroup>
     <ClCompile Include="AppMain.cpp" />
     <ClCompile Include="Main.cpp" />
-    <ClCompile Include="VmaUsage.cpp" />
-    <ClCompile Include="VulkanHelpers.cpp" />
+    <ClCompile Include="vkutils\VmaUsage.cpp" />
+    <ClCompile Include="vkutils\VulkanHelpers.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AppMain.hpp" />
-    <ClInclude Include="VmaUsage.h" />
-    <ClInclude Include="VulkanHelpers.hpp" />
+    <ClInclude Include="vkutils\vk_mem_alloc.h" />
+    <ClInclude Include="vkutils\VmaUsage.h" />
+    <ClInclude Include="vkutils\VulkanHelpers.hpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="shaders\base.frag.glsl">

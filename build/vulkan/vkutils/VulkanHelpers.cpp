@@ -590,8 +590,9 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 // DeInitialize
 void VulkanSwapchainInfo::DeInitialize()
 {
-	//vmaDestroyImage(allocator, imageDepthStencil, imageDepthStencilAllocation);
+	vmaDestroyImage(allocator, imageDepthStencil, imageDepthStencilAllocation);
 	imageDepthStencil = VK_NULL_HANDLE;
+	imageDepthStencilAllocation = VK_NULL_HANDLE;
 	vkDestroyImageView(device, imageViewDepthStencil, VK_NULL_HANDLE);
 	imageViewDepthStencil = VK_NULL_HANDLE;
 	for (const auto& imageViewColor : imageViewColors)
@@ -842,14 +843,13 @@ VkRenderPass CreateRenderPass(VkDevice device)
 	subpassDescriptions[0].flags = 0;
 	subpassDescriptions[0].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	subpassDescriptions[0].inputAttachmentCount = 0;
-	subpassDescriptions[0].pInputAttachments = nullptr;
+	subpassDescriptions[0].pInputAttachments = VK_NULL_HANDLE;
 	subpassDescriptions[0].colorAttachmentCount = (uint32_t)colorAttachmentReferences.size();
 	subpassDescriptions[0].pColorAttachments = colorAttachmentReferences.data();
-	subpassDescriptions[0].pResolveAttachments = nullptr;
-	//subpassDescriptions[0].pDepthStencilAttachment = &depthStencilAttachmentReference;
-	subpassDescriptions[0].pDepthStencilAttachment = nullptr;
+	subpassDescriptions[0].pResolveAttachments = VK_NULL_HANDLE;
+	subpassDescriptions[0].pDepthStencilAttachment = &depthStencilAttachmentReference;
 	subpassDescriptions[0].preserveAttachmentCount = 0;
-	subpassDescriptions[0].pPreserveAttachments = nullptr;
+	subpassDescriptions[0].pPreserveAttachments = VK_NULL_HANDLE;
 
 	//////////////////////////////////////////////////////////////////////////
 
@@ -875,10 +875,9 @@ VkPipelineLayout CreatePipelineLayout(VkDevice device)
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.pNext = VK_NULL_HANDLE;
 	pipelineLayoutInfo.flags = 0;
-	pipelineLayoutInfo.setLayoutCount = 0; // Optional
-	pipelineLayoutInfo.pSetLayouts = nullptr; // Optional
+	pipelineLayoutInfo.setLayoutCount = VK_NULL_HANDLE; // Optional
 	pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
-	pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
+	pipelineLayoutInfo.pPushConstantRanges = VK_NULL_HANDLE; // Optional
 
 	// vkCreatePipelineLayout;
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;

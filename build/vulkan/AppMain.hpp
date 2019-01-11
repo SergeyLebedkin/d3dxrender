@@ -19,10 +19,10 @@ private:
 	VkRenderPass          mRenderPass = VK_NULL_HANDLE;
 	VkShaderModule        mShaderModuleVS = VK_NULL_HANDLE;
 	VkShaderModule        mShaderModuleFS = VK_NULL_HANDLE;
-	VkDescriptorSet       mDescriptorSet = VK_NULL_HANDLE;
 	VkDescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
-	VkDescriptorPool      mDescriptorPool = VK_NULL_HANDLE;
 	VkPipelineLayout      mPipelineLayout = VK_NULL_HANDLE;
+	VkDescriptorPool      mDescriptorPool = VK_NULL_HANDLE;
+	VkDescriptorSet       mDescriptorSet = VK_NULL_HANDLE;
 	VkPipeline            mGraphicsPipeline = VK_NULL_HANDLE;
 	VkCommandBuffer       mCommandBuffer = VK_NULL_HANDLE;
 	VkSemaphore           mImageAvailableSemaphore = VK_NULL_HANDLE;
@@ -30,7 +30,9 @@ private:
 
 	// texture
 	VkImage          mModelImage = VK_NULL_HANDLE;
+	VmaAllocation    mModelImageMemory = VK_NULL_HANDLE;
 	VkImageView      mModelImageView = VK_NULL_HANDLE;
+	VkSampler        mSampler = VK_NULL_HANDLE;
 	// vertex
 	VkBuffer         mModelVertexBufferPos = VK_NULL_HANDLE;
 	VkBuffer         mModelVertexBufferNorm = VK_NULL_HANDLE;
@@ -48,6 +50,7 @@ private:
 	DirectX::XMMATRIX mWVP;
 private:
 	bool loadModelObjFromFile(const char * fileName, const char * baseDir);
+	bool loadTextureFromFile(const char * fileName);
 public:
 	CAppMain() {};
 	virtual ~CAppMain() {};

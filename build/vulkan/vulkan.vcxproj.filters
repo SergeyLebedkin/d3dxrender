@@ -12,6 +12,9 @@
     <ClCompile Include="utils\tiny_obj_loader.cc">
       <Filter>utils</Filter>
     </ClCompile>
+    <ClCompile Include="utils\stb_image.cc">
+      <Filter>utils</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AppMain.hpp" />
@@ -25,6 +28,9 @@
       <Filter>vkutils</Filter>
     </ClInclude>
     <ClInclude Include="utils\tiny_obj_loader.h">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="utils\stb_image.h">
       <Filter>utils</Filter>
     </ClInclude>
   </ItemGroup>

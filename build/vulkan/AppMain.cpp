@@ -1,5 +1,6 @@
 #include "AppMain.hpp"
 #include "Meshes.teapot.h"
+#include "utils/stb_image.h"
 #include "utils/tiny_obj_loader.h"
 #include <iostream>
 #include <fstream>
@@ -78,10 +79,10 @@ void FillCommandBuffer(
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 	
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, VK_NULL_HANDLE);
 	vkCmdBindVertexBuffers(commandBuffer, 0, 3, buffers, offsets);
 	//vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 	//vkCmdDrawIndexed(commandBuffer, sizeof(teapot_indices)/4, 1, 0, 0, 0);
-	//vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, VK_NULL_HANDLE);
 	vkCmdDraw(commandBuffer, size, 1, 0, 0);
 	
 	vkCmdEndRenderPass(commandBuffer);
@@ -101,20 +102,20 @@ bool CAppMain::loadModelObjFromFile(const char * fileName, const char * baseDir)
 	std::cout << err << std::endl;
 
 	// allocate buffers
-	std::vector<float> vecVertexBuffer{};
-	std::vector<float> vecNormaldBuffer{};
-	std::vector<float> vecTexCoordBuffer{};
+	std::vector<float> bufferPos{};
+	std::vector<float> bufferNorm{};
+	std::vector<float> bufferTexCoord{};
 	//for (int i = 0; i < shapes.size(); i++)
 	for (int i = 0; i < 1; i++)
-	{
+	{	
 		tinyobj::shape_t& shape = shapes[i];
 
-		vecVertexBuffer.clear();
-		vecNormaldBuffer.clear();
-		vecTexCoordBuffer.clear();
-		vecVertexBuffer.reserve(shape.mesh.indices.size() * 3);
-		vecNormaldBuffer.reserve(shape.mesh.indices.size() * 3);
-		vecTexCoordBuffer.reserve(shape.mesh.indices.size() * 2);
+		bufferPos.clear();
+		bufferNorm.clear();
+		bufferTexCoord.clear();
+		bufferPos.reserve(shape.mesh.indices.size() * 3);
+		bufferNorm.reserve(shape.mesh.indices.size() * 3);
+		bufferTexCoord.reserve(shape.mesh.indices.size() * 2);
 		mVertexCount = (uint32_t)shape.mesh.indices.size();
 
 		// create buffers
@@ -123,37 +124,57 @@ bool CAppMain::loadModelObjFromFile(const char * fileName, const char * baseDir)
 			// if vertex exists
 			if (index.vertex_index >= 0)
 			{
-				vecVertexBuffer.push_back(attribs.vertices[3 * index.vertex_index + 0]);
-				vecVertexBuffer.push_back(attribs.vertices[3 * index.vertex_index + 1]);
-				vecVertexBuffer.push_back(attribs.vertices[3 * index.vertex_index + 2]);
+				bufferPos.push_back(attribs.vertices[3 * index.vertex_index + 0]);
+				bufferPos.push_back(attribs.vertices[3 * index.vertex_index + 1]);
+				bufferPos.push_back(attribs.vertices[3 * index.vertex_index + 2]);
 			}
 
 			// if normal exists
 			if (index.normal_index >= 0)
 			{
-				vecNormaldBuffer.push_back(attribs.normals[3 * index.normal_index + 0]);
-				vecNormaldBuffer.push_back(attribs.normals[3 * index.normal_index + 1]);
-				vecNormaldBuffer.push_back(attribs.normals[3 * index.normal_index + 2]);
+				bufferNorm.push_back(attribs.normals[3 * index.normal_index + 0]);
+				bufferNorm.push_back(attribs.normals[3 * index.normal_index + 1]);
+				bufferNorm.push_back(attribs.normals[3 * index.normal_index + 2]);
 			}
 
 			// if texCoords exists
 			if (index.texcoord_index >= 0)
 			{
-				vecTexCoordBuffer.push_back(attribs.texcoords[2 * index.texcoord_index + 0]);
-				vecTexCoordBuffer.push_back(attribs.texcoords[2 * index.texcoord_index + 1]);
+				bufferTexCoord.push_back(attribs.texcoords[2 * index.texcoord_index + 0]);
+				bufferTexCoord.push_back(attribs.texcoords[2 * index.texcoord_index + 1]);
 			}
 		}
 
-		mDeviceInfo.AllocateBufferAndMemory(vecVertexBuffer.size() * 4, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mModelVertexBufferPos, mModelVertexMemoryPos);
-		mDeviceInfo.UpdateBufferAndMemory(vecVertexBuffer.data(), vecVertexBuffer.size() * 4, mModelVertexBufferPos, mModelVertexMemoryPos);
-		mDeviceInfo.AllocateBufferAndMemory(vecNormaldBuffer.size() * 4, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mModelVertexBufferNorm, mModelVertexMemoryNorm);
-		mDeviceInfo.UpdateBufferAndMemory(vecNormaldBuffer.data(), vecNormaldBuffer.size() * 4, mModelVertexBufferNorm, mModelVertexMemoryNorm);
-		mDeviceInfo.AllocateBufferAndMemory(vecTexCoordBuffer.size() * 4, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mModelVertexBufferTexCoord, mModelVertexMemoryTexCoord);
-		mDeviceInfo.UpdateBufferAndMemory(vecTexCoordBuffer.data(), vecTexCoordBuffer.size() * 4, mModelVertexBufferTexCoord, mModelVertexMemoryTexCoord);
+		mDeviceInfo.CreateBuffer(bufferPos.data(), bufferPos.size() * 4, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mModelVertexBufferPos, mModelVertexMemoryPos);
+		mDeviceInfo.CreateBuffer(bufferNorm.data(), bufferNorm.size() * 4, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mModelVertexBufferNorm, mModelVertexMemoryNorm);
+		mDeviceInfo.CreateBuffer(bufferTexCoord.data(), bufferTexCoord.size() * 4, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mModelVertexBufferTexCoord, mModelVertexMemoryTexCoord);
 		assert(mModelVertexMemoryPos);
 		assert(mModelVertexMemoryNorm);
 		assert(mModelVertexMemoryTexCoord);
 	}
+
+	return true;
+}
+
+// loadTextureFromFile
+bool CAppMain::loadTextureFromFile(const char * fileName)
+{
+	// load image data
+	int x, y, n;
+	unsigned char *data = stbi_load(fileName, &x, &y, &n, 4);
+	assert(data);
+
+	// create image
+	mDeviceInfo.CreateImage(data, x, y, VK_FORMAT_R8G8B8A8_SNORM, VK_IMAGE_USAGE_SAMPLED_BIT, mModelImage, mModelImageMemory);
+	assert(mModelImage);
+	assert(mModelImageMemory);
+
+	// create image view
+	mModelImageView = CreateImageView(mDeviceInfo.device, mModelImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+	assert(mModelImageView);
+
+	// free image data
+	stbi_image_free(data);
 
 	return true;
 }
@@ -226,9 +247,6 @@ void CAppMain::Init(const HWND hWnd)
 	mDescriptorSetLayout = CreateDescriptorSetLayout(mDeviceInfo.device);
 	assert(mDescriptorSetLayout);
 
-	mDescriptorPool = CreateDescriptorPool(mDeviceInfo.device);
-	assert(mDescriptorPool);
-
 	mPipelineLayout = CreatePipelineLayout(mDeviceInfo.device, mDescriptorSetLayout);
 	assert(mPipelineLayout);
 
@@ -245,41 +263,37 @@ void CAppMain::Init(const HWND hWnd)
 	mRenderFinishedSemaphore = CreateSemaphore(mDeviceInfo.device);
 	assert(mRenderFinishedSemaphore);
 
+	mSampler = CreateSampler(mDeviceInfo.device);
+	assert(mSampler);
+
 	loadModelObjFromFile("./models/tea.obj", "./models");
-	/*
-	// allocate vertex buffer and device memory
-	mDeviceInfo.AllocateBufferAndMemory(sizeof(teapot_positions), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mModelVertexBufferPos, mModelVertexMemoryPos);
-	mDeviceInfo.UpdateBufferAndMemory(teapot_positions, sizeof(teapot_positions), mModelVertexBufferPos, mModelVertexMemoryPos);
-	assert(mModelVertexBufferPos);
-	assert(mModelVertexMemoryPos);
+	loadTextureFromFile("./models/rose.jpg");
 
-	// allocate vertex buffer and device memory
-	mDeviceInfo.AllocateBufferAndMemory(sizeof(teapot_normals), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mModelVertexBufferNorm, mModelVertexMemoryNorm);
-	mDeviceInfo.UpdateBufferAndMemory(teapot_normals, sizeof(teapot_normals), mModelVertexBufferNorm, mModelVertexMemoryNorm);
-	assert(mModelVertexBufferNorm);
-	assert(mModelVertexMemoryNorm);
+	mDescriptorPool = CreateDescriptorPool(mDeviceInfo.device);
+	assert(mDescriptorPool);
 
-	// allocate index buffer and device memory
-	mDeviceInfo.AllocateBufferAndMemory(sizeof(teapot_indices), VK_BUFFER_USAGE_INDEX_BUFFER_BIT, mModelIndexBuffer, mModelIndexMemory);
-	mDeviceInfo.UpdateBufferAndMemory(teapot_indices, sizeof(teapot_indices), mModelIndexBuffer, mModelIndexMemory);
-	assert(mModelIndexBuffer);
-	assert(mModelIndexMemory);
-	*/
+ 	mDescriptorSet = AllocateDescriptorSet(mDeviceInfo.device, mDescriptorPool, mDescriptorSetLayout);
+ 	assert(mDescriptorSet);
+ 	UpdateDescriptorSets(mDeviceInfo.device, mDescriptorSet, mModelImageView, mSampler);
 }
 
 // Created SL-160225
 void CAppMain::Destroy()
 {
+	vkDestroyDescriptorPool(mDeviceInfo.device, mDescriptorPool, VK_NULL_HANDLE);
+
+	vkDestroyImageView(mDeviceInfo.device, mModelImageView, VK_NULL_HANDLE);
+	vmaDestroyImage(mDeviceInfo.allocator, mModelImage, mModelImageMemory);
 	vmaDestroyBuffer(mDeviceInfo.allocator, mModelIndexBuffer, mModelIndexMemory);
 	vmaDestroyBuffer(mDeviceInfo.allocator, mModelVertexBufferTexCoord, mModelVertexMemoryTexCoord);
 	vmaDestroyBuffer(mDeviceInfo.allocator, mModelVertexBufferNorm, mModelVertexMemoryNorm);
 	vmaDestroyBuffer(mDeviceInfo.allocator, mModelVertexBufferPos, mModelVertexMemoryPos);
 	
+	vkDestroySampler(mDeviceInfo.device, mSampler, VK_NULL_HANDLE);
 	vkDestroySemaphore(mDeviceInfo.device, mRenderFinishedSemaphore, VK_NULL_HANDLE);
 	vkDestroySemaphore(mDeviceInfo.device, mImageAvailableSemaphore, VK_NULL_HANDLE);
 	vkDestroyPipeline(mDeviceInfo.device, mGraphicsPipeline, VK_NULL_HANDLE);
 	vkDestroyPipelineLayout(mDeviceInfo.device, mPipelineLayout, VK_NULL_HANDLE);
-	vkDestroyDescriptorPool(mDeviceInfo.device, mDescriptorPool, VK_NULL_HANDLE);
 	vkDestroyDescriptorSetLayout(mDeviceInfo.device, mDescriptorSetLayout, VK_NULL_HANDLE);
 	vkDestroyShaderModule(mDeviceInfo.device, mShaderModuleFS, VK_NULL_HANDLE);
 	vkDestroyShaderModule(mDeviceInfo.device, mShaderModuleVS, VK_NULL_HANDLE);

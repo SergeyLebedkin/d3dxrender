@@ -103,11 +103,18 @@ struct VulkanDeviceInfo
 	uint32_t CheckMemoryHeapIndexByBits(uint32_t index, VkMemoryPropertyFlags propertyFlags) const;
 	VkSurfaceFormatKHR FindSurfaceFormat() const;
 	VkPresentModeKHR FindPresentMode() const;
-	void CopyBuffers(VkDeviceSize size, VkBuffer srcBuffer, VkBuffer dstBuffer) const;
 
-	// allocate functions
-	void AllocateBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VmaAllocation& allocation);
-	void UpdateBufferAndMemory(const void* data, VkDeviceSize size, VkBuffer buffer, VmaAllocation& allocation);
+	// buffer functions
+	void CopyBuffers(VkDeviceSize size, VkBuffer srcBuffer, VkBuffer dstBuffer) const;
+	void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VmaAllocation& allocation);
+	void CreateBuffer(const void* data, VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VmaAllocation& allocation);
+	void WriteBuffer(const void* data, VkDeviceSize size, VkBuffer buffer, VmaAllocation& allocation);
+
+	// image functions
+	void CopyImages(uint32_t width, uint32_t height, VkImage srcImage, VkImage dstImage) const;
+	void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImage& image, VmaAllocation& allocation);
+	void CreateImage(const void* data, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImage& image, VmaAllocation& allocation);
+	void WriteImage(const void* data, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImage& image, VmaAllocation& allocation);
 };
 
 // VulkanSwapchainInfo
@@ -186,8 +193,17 @@ VkRenderPass CreateRenderPass(VkDevice device);
 // CreateDescriptorPool
 VkDescriptorPool CreateDescriptorPool(VkDevice device);
 
+// AllocateDescriptorSet
+VkDescriptorSet AllocateDescriptorSet(VkDevice device, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout);
+
+// UpdateDescriptorSets
+void UpdateDescriptorSets(VkDevice device, VkDescriptorSet descriptorSet, VkImageView imageView, VkSampler sampler);
+
 // CreateDescriptorSetLayout
 VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice device);
+
+// CreateSampler
+VkSampler CreateSampler(VkDevice device);
 
 // CreatePipelineLayout
 VkPipelineLayout CreatePipelineLayout(VkDevice device, VkDescriptorSetLayout descriptorSetLayout);

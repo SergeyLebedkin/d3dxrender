@@ -224,7 +224,7 @@ void VulkanDeviceInfo::Initialize(VkPhysicalDevice physicalDevice, VkSurfaceKHR 
 	deviceCreateInfo.ppEnabledLayerNames = VK_NULL_HANDLE;
 	deviceCreateInfo.pEnabledFeatures = &physicalDeviceFeatures;
 
-	// vkCreateImage
+	// vkCreateDevice
 	VK_CHECK(vkCreateDevice(physicalDevice, &deviceCreateInfo, VK_NULL_HANDLE, &device));
 	assert(device);
 
@@ -421,9 +421,12 @@ void VulkanDeviceInfo::CopyBuffers(VkDeviceSize size, VkBuffer srcBuffer, VkBuff
 	vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 }
 
-// AllocateBufferAndMemory
-void VulkanDeviceInfo::AllocateBufferAndMemory(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VmaAllocation& allocation)
+// CreateBuffer (without initilization)
+void VulkanDeviceInfo::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VmaAllocation& allocation)
 {
+	// check size
+	assert(size);
+
 	// VkBufferCreateInfo
 	VkBufferCreateInfo bufferCreateInfo{};
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -435,15 +438,30 @@ void VulkanDeviceInfo::AllocateBufferAndMemory(VkDeviceSize size, VkBufferUsageF
 	VmaAllocationCreateInfo allocCreateInfo{};
 	allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	allocCreateInfo.flags = 0;
-	
-	VK_CHECK(vmaCreateBuffer(allocator, &bufferCreateInfo, &allocCreateInfo, &buffer, &allocation, nullptr));
+
+	// vmaCreateBuffer
+	VK_CHECK(vmaCreateBuffer(allocator, &bufferCreateInfo, &allocCreateInfo, &buffer, &allocation, VK_NULL_HANDLE));
 	assert(buffer);
 	assert(allocation);
 }
 
-// UpdateBufferAndMemory
-void VulkanDeviceInfo::UpdateBufferAndMemory(const void* data, VkDeviceSize size, VkBuffer buffer, VmaAllocation& allocation)
+// CreateBuffer (with initilization)
+void VulkanDeviceInfo::CreateBuffer(const void* data, VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VmaAllocation& allocation)
 {
+	// check data
+	assert(data);
+	// create buffer
+	CreateBuffer(size, usage, buffer, allocation);
+	// write buffer
+	WriteBuffer(data, size, buffer, allocation);
+}
+
+// WriteBuffer
+void VulkanDeviceInfo::WriteBuffer(const void* data, VkDeviceSize size, VkBuffer buffer, VmaAllocation& allocation)
+{
+	// check data
+	assert(data);
+
 	// get memory buffer properties
 	VmaAllocationInfo allocationInfo{};
 	vmaGetAllocationInfo(allocator, allocation, &allocationInfo);
@@ -475,9 +493,9 @@ void VulkanDeviceInfo::UpdateBufferAndMemory(const void* data, VkDeviceSize size
 		// create staging buffer and memory
 		VkBuffer stagingBuffer = VK_NULL_HANDLE;
 		VmaAllocation stagingBufferAlloc = VK_NULL_HANDLE;
-		VK_CHECK(vmaCreateBuffer(allocator, &bufferCreateInfo, &allocCreateInfo, &stagingBuffer, &stagingBufferAlloc, nullptr));
+		VK_CHECK(vmaCreateBuffer(allocator, &bufferCreateInfo, &allocCreateInfo, &stagingBuffer, &stagingBufferAlloc, VK_NULL_HANDLE));
 
-		// create staging buffer and memory
+		// map staging buffer and memory
 		void* mappedData = nullptr;
 		vmaMapMemory(allocator, stagingBufferAlloc, &mappedData);
 		assert(mappedData);
@@ -489,6 +507,216 @@ void VulkanDeviceInfo::UpdateBufferAndMemory(const void* data, VkDeviceSize size
 
 		// destroy buffer and free memory
 		vmaDestroyBuffer(allocator, stagingBuffer, stagingBufferAlloc);
+	}
+}
+
+// CopyImages
+void VulkanDeviceInfo::CopyImages(uint32_t width, uint32_t height, VkImage srcImage, VkImage dstImage) const
+{
+	// VkCommandBufferAllocateInfo
+	VkCommandBufferAllocateInfo commandBufferAllocateInfo{};
+	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	commandBufferAllocateInfo.pNext = VK_NULL_HANDLE;
+	commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	commandBufferAllocateInfo.commandPool = commandPool;
+	commandBufferAllocateInfo.commandBufferCount = 1;
+
+	// VkCommandBuffer
+	VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+	VK_CHECK(vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &commandBuffer));
+	assert(commandBuffer);
+
+	// VkCommandBufferBeginInfo
+	VkCommandBufferBeginInfo commandBufferBeginInfo{};
+	commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	commandBufferBeginInfo.pNext = VK_NULL_HANDLE;
+	commandBufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	commandBufferBeginInfo.pInheritanceInfo = nullptr; // Optional
+	VK_CHECK(vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo));
+
+	// VkImageMemoryBarrier
+	VkImageMemoryBarrier imgMemBarrier{};
+	imgMemBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	imgMemBarrier.pNext = VK_NULL_HANDLE;
+	imgMemBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imgMemBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imgMemBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	imgMemBarrier.subresourceRange.baseMipLevel = 0;
+	imgMemBarrier.subresourceRange.levelCount = 1;
+	imgMemBarrier.subresourceRange.baseArrayLayer = 0;
+	imgMemBarrier.subresourceRange.layerCount = 1;
+
+	imgMemBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+	imgMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+	imgMemBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	imgMemBarrier.image = srcImage;
+	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imgMemBarrier);
+
+	imgMemBarrier.srcAccessMask = 0;
+	imgMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	imgMemBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	imgMemBarrier.image = dstImage;
+	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imgMemBarrier);
+
+	// VkImageCopy
+	VkImageCopy imageCopy{};
+	imageCopy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	imageCopy.srcSubresource.mipLevel = 0;
+	imageCopy.srcSubresource.baseArrayLayer = 0;
+	imageCopy.srcSubresource.layerCount = 1;
+	imageCopy.srcOffset.x = 0;
+	imageCopy.srcOffset.y = 0;
+	imageCopy.srcOffset.z = 0;
+	imageCopy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	imageCopy.dstSubresource.mipLevel = 0;
+	imageCopy.dstSubresource.baseArrayLayer = 0;
+	imageCopy.dstSubresource.layerCount = 1;
+	imageCopy.dstOffset.x = 0;
+	imageCopy.dstOffset.y = 0;
+	imageCopy.dstOffset.z = 0;
+	imageCopy.extent.width = width;
+	imageCopy.extent.height = height;
+	imageCopy.extent.depth = 1;
+
+	// vkCmdCopyImage
+	vkCmdCopyImage(commandBuffer, srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageCopy);
+
+	imgMemBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	imgMemBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	imgMemBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	imgMemBarrier.image = dstImage;
+	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imgMemBarrier);
+
+	// vkEndCommandBuffer
+	VK_CHECK(vkEndCommandBuffer(commandBuffer));
+
+	// submit and wait
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.pNext = VK_NULL_HANDLE;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+	VK_CHECK(vkQueueSubmit(queueGraphics, 1, &submitInfo, VK_NULL_HANDLE));
+	VK_CHECK(vkQueueWaitIdle(queueGraphics));
+
+	// free command buffer
+	vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+}
+
+// CreateImage
+void VulkanDeviceInfo::CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImage& image, VmaAllocation& allocation)
+{
+	// check width and height
+	assert(width);
+	assert(height);
+
+	// VkImageCreateInfo
+	VkImageCreateInfo imageCreateInfo{};
+	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageCreateInfo.pNext = VK_NULL_HANDLE;
+	imageCreateInfo.flags = 0;
+	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageCreateInfo.format = format;
+	imageCreateInfo.extent.width = width;
+	imageCreateInfo.extent.height = height;
+	imageCreateInfo.extent.depth = 1;
+	imageCreateInfo.mipLevels = 1;
+	imageCreateInfo.arrayLayers = 1;
+	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageCreateInfo.usage = usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageCreateInfo.queueFamilyIndexCount = VK_QUEUE_FAMILY_IGNORED;
+	imageCreateInfo.pQueueFamilyIndices = VK_NULL_HANDLE;
+	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+	// VmaAllocationCreateInfo
+	VmaAllocationCreateInfo allocCreateInfo{};
+	allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+	allocCreateInfo.flags = 0;
+
+	// vmaCreateImage
+	VK_CHECK(vmaCreateImage(allocator, &imageCreateInfo, &allocCreateInfo, &image, &allocation, VK_NULL_HANDLE));
+	assert(image);
+}
+
+// CreateImage
+void VulkanDeviceInfo::CreateImage(const void* data, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImage& image, VmaAllocation& allocation)
+{
+	// create image
+	CreateImage(width, height, format, usage, image, allocation);
+	// write image
+	WriteImage(data, width, height, format, usage, image, allocation);
+}
+
+// WriteImage
+void VulkanDeviceInfo::WriteImage(const void* data, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImage& image, VmaAllocation& allocation)
+{
+	// get memory buffer properties
+	VmaAllocationInfo allocationInfo{};
+	vmaGetAllocationInfo(allocator, allocation, &allocationInfo);
+	VkMemoryPropertyFlags memFlags;
+	vmaGetMemoryTypeProperties(allocator, allocationInfo.memoryType, &memFlags);
+
+	// if target device memory is host visible, then just map/unmap memory to device memory
+	if ((memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+		void* mappedData = nullptr;
+		vmaMapMemory(allocator, allocation, &mappedData);
+		assert(mappedData);
+		memcpy(mappedData, &data, width * height * 4);
+		vmaUnmapMemory(allocator, allocation);
+	}
+	else // if target device memory is NOT host visible, then we need use staging image
+	{
+		// VkImageCreateInfo
+		VkImageCreateInfo imageCreateInfo{};
+		imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageCreateInfo.pNext = VK_NULL_HANDLE;
+		imageCreateInfo.flags = 0;
+		imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageCreateInfo.format = format;
+		imageCreateInfo.extent.width = width;
+		imageCreateInfo.extent.height = height;
+		imageCreateInfo.extent.depth = 1;
+		imageCreateInfo.mipLevels = 1;
+		imageCreateInfo.arrayLayers = 1;
+		imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
+		imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+		imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		imageCreateInfo.queueFamilyIndexCount = VK_QUEUE_FAMILY_IGNORED;
+		imageCreateInfo.pQueueFamilyIndices = VK_NULL_HANDLE;
+		imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+
+		// VmaAllocationCreateInfo
+		VmaAllocationCreateInfo allocCreateInfo{};
+		allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+		allocCreateInfo.flags = 0;
+
+		// create staging image and memory
+		VkImage stagingImage = VK_NULL_HANDLE;
+		VmaAllocation stagingImageAlloc = VK_NULL_HANDLE;
+
+		// vmaCreateImage
+		VK_CHECK(vmaCreateImage(allocator, &imageCreateInfo, &allocCreateInfo, &stagingImage, &stagingImageAlloc, VK_NULL_HANDLE));
+		assert(stagingImage);
+		assert(stagingImageAlloc);
+
+		// map staging buffer and memory
+		void* mappedData = nullptr;
+		vmaMapMemory(allocator, stagingImageAlloc, &mappedData);
+		assert(mappedData);
+		memcpy(mappedData, data, width * height * 4);
+		vmaUnmapMemory(allocator, stagingImageAlloc);
+
+		// copy images
+		CopyImages(width, height, stagingImage, image);
+
+		// destroy buffer and free memory
+		vmaDestroyImage(allocator, stagingImage, stagingImageAlloc);
 	}
 }
 
@@ -564,8 +792,7 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 	allocationCreateInfo.flags = 0;
 
 	// create image
-	VkImageCreateInfo imageCreateInfo = InitImageCreateInfo(VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, viewportWidth, viewportHeight);
-	vmaCreateImage(deviceInfo.allocator, &imageCreateInfo, &allocationCreateInfo, &imageDepthStencil, &imageDepthStencilAllocation, VK_NULL_HANDLE);
+	deviceInfo.CreateImage(viewportWidth, viewportHeight, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, imageDepthStencil, imageDepthStencilAllocation);
 	assert(imageDepthStencil);
 	assert(imageDepthStencilAllocation);
 
@@ -871,9 +1098,9 @@ VkRenderPass CreateRenderPass(VkDevice device)
 VkDescriptorPool CreateDescriptorPool(VkDevice device)
 {
 	// VkDescriptorPoolSize
-	std::array<VkDescriptorPoolSize, 1> descriptorPoolSizes;
+	std::array<VkDescriptorPoolSize, 2> descriptorPoolSizes;
 	// texture 
-	descriptorPoolSizes[0].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	descriptorPoolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	descriptorPoolSizes[0].descriptorCount = 1;
 
 	// VkDescriptorPoolCreateInfo
@@ -891,6 +1118,48 @@ VkDescriptorPool CreateDescriptorPool(VkDevice device)
 	return descriptorPool;
 }
 
+// AllocateDescriptorSets
+VkDescriptorSet AllocateDescriptorSet(VkDevice device, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout)
+{
+	// VkDescriptorSetAllocateInfo
+	VkDescriptorSetAllocateInfo descriptorSetAllocateInfo{};
+	descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	descriptorSetAllocateInfo.pNext = VK_NULL_HANDLE;
+	descriptorSetAllocateInfo.descriptorPool = descriptorPool;
+	descriptorSetAllocateInfo.descriptorSetCount = 1;
+	descriptorSetAllocateInfo.pSetLayouts = &descriptorSetLayout;
+
+	// vkAllocateDescriptorSets
+	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+	VK_CHECK(vkAllocateDescriptorSets(device, &descriptorSetAllocateInfo, &descriptorSet));
+	return descriptorSet;
+}
+
+// UpdateDescriptorSets
+void UpdateDescriptorSets(VkDevice device, VkDescriptorSet descriptorSet, VkImageView imageView, VkSampler sampler)
+{
+	// VkDescriptorImageInfo
+	VkDescriptorImageInfo descriptorImageInfo{};
+	descriptorImageInfo.sampler = sampler;
+	descriptorImageInfo.imageView = imageView;
+	descriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	std::array<VkWriteDescriptorSet, 1> writeDescriptorSets{};
+	writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writeDescriptorSets[0].pNext = VK_NULL_HANDLE;
+	writeDescriptorSets[0].dstSet = descriptorSet;
+	writeDescriptorSets[0].dstBinding = 0;
+	writeDescriptorSets[0].dstArrayElement = 0;
+	writeDescriptorSets[0].descriptorCount = 1;
+	writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	writeDescriptorSets[0].pImageInfo = &descriptorImageInfo;
+	writeDescriptorSets[0].pBufferInfo = VK_NULL_HANDLE;
+	writeDescriptorSets[0].pTexelBufferView = VK_NULL_HANDLE;
+
+	// vkUpdateDescriptorSets
+	vkUpdateDescriptorSets(device, (uint32_t)writeDescriptorSets.size(), writeDescriptorSets.data(), 0, VK_NULL_HANDLE);
+}
+
 // CreatePipelineLayout
 VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice device)
 {
@@ -898,7 +1167,7 @@ VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice device)
 	std::array<VkDescriptorSetLayoutBinding, 1> descriptorSetLayoutBindings;
 	// descriptorSetLayoutBindings - texture
 	descriptorSetLayoutBindings[0].binding = 0;
-	descriptorSetLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	descriptorSetLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	descriptorSetLayoutBindings[0].descriptorCount = 1;
 	descriptorSetLayoutBindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	descriptorSetLayoutBindings[0].pImmutableSamplers = VK_NULL_HANDLE;
@@ -915,6 +1184,36 @@ VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice device)
 	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
 	VK_CHECK(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCreateInfo, VK_NULL_HANDLE, &descriptorSetLayout));
 	return descriptorSetLayout;
+}
+
+// CreateSampler
+VkSampler CreateSampler(VkDevice device)
+{
+	// VkSamplerCreateInfo
+	VkSamplerCreateInfo samplerCreateInfo{};
+	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerCreateInfo.pNext = VK_NULL_HANDLE;
+	samplerCreateInfo.flags = 0;
+	samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+	samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerCreateInfo.mipLodBias = 0.0f;
+	samplerCreateInfo.anisotropyEnable = VK_FALSE;
+	samplerCreateInfo.maxAnisotropy = 1;
+	samplerCreateInfo.compareEnable = VK_FALSE;
+	samplerCreateInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+	samplerCreateInfo.minLod = 0.0f;
+	samplerCreateInfo.maxLod = FLT_MAX;
+	samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
+
+	// vkCreateSampler
+	VkSampler sampler;
+	VK_CHECK(vkCreateSampler(device, &samplerCreateInfo, VK_NULL_HANDLE, &sampler));
+	return sampler;
 }
 
 // CreatePipelineLayout
@@ -1020,8 +1319,8 @@ VkPipeline CreateGraphicsPipeline(
 	rasterizationState.flags = 0;
 	rasterizationState.depthClampEnable = VK_FALSE;
 	rasterizationState.rasterizerDiscardEnable = VK_FALSE;
-	//rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
-	rasterizationState.polygonMode = VK_POLYGON_MODE_LINE;
+	rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
+	//rasterizationState.polygonMode = VK_POLYGON_MODE_LINE;
 	rasterizationState.cullMode = VK_CULL_MODE_NONE;
 	rasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
 	rasterizationState.depthBiasEnable = VK_FALSE;

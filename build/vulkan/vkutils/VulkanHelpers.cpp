@@ -867,15 +867,66 @@ VkRenderPass CreateRenderPass(VkDevice device)
 	return renderPass;
 }
 
+// CreateDescriptorPool
+VkDescriptorPool CreateDescriptorPool(VkDevice device)
+{
+	// VkDescriptorPoolSize
+	std::array<VkDescriptorPoolSize, 1> descriptorPoolSizes;
+	// texture 
+	descriptorPoolSizes[0].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	descriptorPoolSizes[0].descriptorCount = 1;
+
+	// VkDescriptorPoolCreateInfo
+	VkDescriptorPoolCreateInfo descriptorPoolCreateInfo{};
+	descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	descriptorPoolCreateInfo.pNext = VK_NULL_HANDLE;
+	descriptorPoolCreateInfo.flags = 0;
+	descriptorPoolCreateInfo.maxSets = 1;
+	descriptorPoolCreateInfo.poolSizeCount = (uint32_t)descriptorPoolSizes.size();
+	descriptorPoolCreateInfo.pPoolSizes = descriptorPoolSizes.data();
+
+	// vkCreateDescriptorPool
+	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+	VK_CHECK(vkCreateDescriptorPool(device, &descriptorPoolCreateInfo, VK_NULL_HANDLE, &descriptorPool));
+	return descriptorPool;
+}
+
 // CreatePipelineLayout
-VkPipelineLayout CreatePipelineLayout(VkDevice device)
+VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice device)
+{
+	// VkPipelineLayoutCreateInfo
+	std::array<VkDescriptorSetLayoutBinding, 1> descriptorSetLayoutBindings;
+	// descriptorSetLayoutBindings - texture
+	descriptorSetLayoutBindings[0].binding = 0;
+	descriptorSetLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	descriptorSetLayoutBindings[0].descriptorCount = 1;
+	descriptorSetLayoutBindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	descriptorSetLayoutBindings[0].pImmutableSamplers = VK_NULL_HANDLE;
+
+	// VkPipelineLayoutCreateInfo
+	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
+	descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	descriptorSetLayoutCreateInfo.pNext = VK_NULL_HANDLE;
+	descriptorSetLayoutCreateInfo.flags = 0;
+	descriptorSetLayoutCreateInfo.bindingCount = (uint32_t)descriptorSetLayoutBindings.size();
+	descriptorSetLayoutCreateInfo.pBindings = descriptorSetLayoutBindings.data();
+
+	// vkCreatePipelineLayout
+	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+	VK_CHECK(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCreateInfo, VK_NULL_HANDLE, &descriptorSetLayout));
+	return descriptorSetLayout;
+}
+
+// CreatePipelineLayout
+VkPipelineLayout CreatePipelineLayout(VkDevice device, VkDescriptorSetLayout descriptorSetLayout)
 {
 	// VkPipelineLayoutCreateInfo
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.pNext = VK_NULL_HANDLE;
 	pipelineLayoutInfo.flags = 0;
-	pipelineLayoutInfo.setLayoutCount = VK_NULL_HANDLE; // Optional
+	pipelineLayoutInfo.setLayoutCount = 1; // Optional
+	pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
 	pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
 	pipelineLayoutInfo.pPushConstantRanges = VK_NULL_HANDLE; // Optional
 
@@ -969,7 +1020,8 @@ VkPipeline CreateGraphicsPipeline(
 	rasterizationState.flags = 0;
 	rasterizationState.depthClampEnable = VK_FALSE;
 	rasterizationState.rasterizerDiscardEnable = VK_FALSE;
-	rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
+	//rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
+	rasterizationState.polygonMode = VK_POLYGON_MODE_LINE;
 	rasterizationState.cullMode = VK_CULL_MODE_NONE;
 	rasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
 	rasterizationState.depthBiasEnable = VK_FALSE;

@@ -183,8 +183,14 @@ VkShaderModule CreateShaderModuleFromFile(VkDevice device, const char* fileName)
 // CreateRenderPass
 VkRenderPass CreateRenderPass(VkDevice device);
 
+// CreateDescriptorPool
+VkDescriptorPool CreateDescriptorPool(VkDevice device);
+
+// CreateDescriptorSetLayout
+VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice device);
+
 // CreatePipelineLayout
-VkPipelineLayout CreatePipelineLayout(VkDevice device);
+VkPipelineLayout CreatePipelineLayout(VkDevice device, VkDescriptorSetLayout descriptorSetLayout);
 
 // CreateGraphicsPipeline
 VkPipeline CreateGraphicsPipeline(

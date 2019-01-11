@@ -9,6 +9,9 @@
     <ClCompile Include="vkutils\VulkanHelpers.cpp">
       <Filter>vkutils</Filter>
     </ClCompile>
+    <ClCompile Include="utils\tiny_obj_loader.cc">
+      <Filter>utils</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AppMain.hpp" />
@@ -21,6 +24,9 @@
     <ClInclude Include="vkutils\VulkanHelpers.hpp">
       <Filter>vkutils</Filter>
     </ClInclude>
+    <ClInclude Include="utils\tiny_obj_loader.h">
+      <Filter>utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="shaders">
@@ -28,6 +34,9 @@
     </Filter>
     <Filter Include="vkutils">
       <UniqueIdentifier>{e8bc0d1d-8eb9-4f18-8c93-7d254adba203}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="utils">
+      <UniqueIdentifier>{9381b7c4-3c08-4c59-beae-29fe92d1cd84}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

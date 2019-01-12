@@ -331,3 +331,4 @@ ASALocalRun/
 .mfractor/
 
 *.spv
+!build/vulkan/models/*.obj

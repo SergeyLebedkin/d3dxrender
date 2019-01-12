@@ -998,6 +998,36 @@ VkBuffer CreateBuffer(VkDevice device, VkDeviceSize size, VkBufferUsageFlags usa
 	return buffer;
 }
 
+// CreateSampler
+VkSampler CreateSampler(VkDevice device)
+{
+	// VkSamplerCreateInfo
+	VkSamplerCreateInfo samplerCreateInfo{};
+	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerCreateInfo.pNext = VK_NULL_HANDLE;
+	samplerCreateInfo.flags = 0;
+	samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+	samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samplerCreateInfo.mipLodBias = 0.0f;
+	samplerCreateInfo.anisotropyEnable = VK_TRUE;
+	samplerCreateInfo.maxAnisotropy = 16;
+	samplerCreateInfo.compareEnable = VK_FALSE;
+	samplerCreateInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+	samplerCreateInfo.minLod = 0.0f;
+	samplerCreateInfo.maxLod = FLT_MAX;
+	samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
+
+	// vkCreateSampler
+	VkSampler sampler;
+	VK_CHECK(vkCreateSampler(device, &samplerCreateInfo, VK_NULL_HANDLE, &sampler));
+	return sampler;
+}
+
 // CreateShaderModuleFromFile
 VkShaderModule CreateShaderModuleFromFile(VkDevice device, const char* fileName)
 {
@@ -1099,9 +1129,12 @@ VkDescriptorPool CreateDescriptorPool(VkDevice device)
 {
 	// VkDescriptorPoolSize
 	std::array<VkDescriptorPoolSize, 2> descriptorPoolSizes;
-	// texture 
+	// VkDescriptorPoolSize - texture 
 	descriptorPoolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	descriptorPoolSizes[0].descriptorCount = 1;
+	// VkDescriptorPoolSize - uniform (MVP)
+	descriptorPoolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorPoolSizes[1].descriptorCount = 1;
 
 	// VkDescriptorPoolCreateInfo
 	VkDescriptorPoolCreateInfo descriptorPoolCreateInfo{};
@@ -1136,7 +1169,7 @@ VkDescriptorSet AllocateDescriptorSet(VkDevice device, VkDescriptorPool descript
 }
 
 // UpdateDescriptorSets
-void UpdateDescriptorSets(VkDevice device, VkDescriptorSet descriptorSet, VkImageView imageView, VkSampler sampler)
+void UpdateDescriptorSets(VkDevice device, VkDescriptorSet descriptorSet, VkImageView imageView, VkSampler sampler, VkBuffer mvpBuffer)
 {
 	// VkDescriptorImageInfo
 	VkDescriptorImageInfo descriptorImageInfo{};
@@ -1144,7 +1177,15 @@ void UpdateDescriptorSets(VkDevice device, VkDescriptorSet descriptorSet, VkImag
 	descriptorImageInfo.imageView = imageView;
 	descriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	std::array<VkWriteDescriptorSet, 1> writeDescriptorSets{};
+	// VkDescriptorImageInfo
+	VkDescriptorBufferInfo descriptorBufferInfo{};
+	descriptorBufferInfo.buffer = mvpBuffer;
+	descriptorBufferInfo.offset = 0;
+	descriptorBufferInfo.range = VK_WHOLE_SIZE;
+	
+	// VkWriteDescriptorSet
+	std::array<VkWriteDescriptorSet, 2> writeDescriptorSets{};
+	// VkWriteDescriptorSet - texture
 	writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	writeDescriptorSets[0].pNext = VK_NULL_HANDLE;
 	writeDescriptorSets[0].dstSet = descriptorSet;
@@ -1155,6 +1196,17 @@ void UpdateDescriptorSets(VkDevice device, VkDescriptorSet descriptorSet, VkImag
 	writeDescriptorSets[0].pImageInfo = &descriptorImageInfo;
 	writeDescriptorSets[0].pBufferInfo = VK_NULL_HANDLE;
 	writeDescriptorSets[0].pTexelBufferView = VK_NULL_HANDLE;
+	// VkWriteDescriptorSet - uniform (MVP)
+	writeDescriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writeDescriptorSets[1].pNext = VK_NULL_HANDLE;
+	writeDescriptorSets[1].dstSet = descriptorSet;
+	writeDescriptorSets[1].dstBinding = 1;
+	writeDescriptorSets[1].dstArrayElement = 0;
+	writeDescriptorSets[1].descriptorCount = 1;
+	writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	writeDescriptorSets[1].pImageInfo = VK_NULL_HANDLE;
+	writeDescriptorSets[1].pBufferInfo = &descriptorBufferInfo;
+	writeDescriptorSets[1].pTexelBufferView = VK_NULL_HANDLE;
 
 	// vkUpdateDescriptorSets
 	vkUpdateDescriptorSets(device, (uint32_t)writeDescriptorSets.size(), writeDescriptorSets.data(), 0, VK_NULL_HANDLE);
@@ -1164,13 +1216,19 @@ void UpdateDescriptorSets(VkDevice device, VkDescriptorSet descriptorSet, VkImag
 VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice device)
 {
 	// VkPipelineLayoutCreateInfo
-	std::array<VkDescriptorSetLayoutBinding, 1> descriptorSetLayoutBindings;
+	std::array<VkDescriptorSetLayoutBinding, 2> descriptorSetLayoutBindings;
 	// descriptorSetLayoutBindings - texture
 	descriptorSetLayoutBindings[0].binding = 0;
 	descriptorSetLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	descriptorSetLayoutBindings[0].descriptorCount = 1;
 	descriptorSetLayoutBindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	descriptorSetLayoutBindings[0].pImmutableSamplers = VK_NULL_HANDLE;
+	// descriptorSetLayoutBindings - uniform (MVP)
+	descriptorSetLayoutBindings[1].binding = 1;
+	descriptorSetLayoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorSetLayoutBindings[1].descriptorCount = 1;
+	descriptorSetLayoutBindings[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	descriptorSetLayoutBindings[1].pImmutableSamplers = VK_NULL_HANDLE;
 
 	// VkPipelineLayoutCreateInfo
 	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
@@ -1184,36 +1242,6 @@ VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice device)
 	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
 	VK_CHECK(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCreateInfo, VK_NULL_HANDLE, &descriptorSetLayout));
 	return descriptorSetLayout;
-}
-
-// CreateSampler
-VkSampler CreateSampler(VkDevice device)
-{
-	// VkSamplerCreateInfo
-	VkSamplerCreateInfo samplerCreateInfo{};
-	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerCreateInfo.pNext = VK_NULL_HANDLE;
-	samplerCreateInfo.flags = 0;
-	samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
-	samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
-	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.mipLodBias = 0.0f;
-	samplerCreateInfo.anisotropyEnable = VK_FALSE;
-	samplerCreateInfo.maxAnisotropy = 1;
-	samplerCreateInfo.compareEnable = VK_FALSE;
-	samplerCreateInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-	samplerCreateInfo.minLod = 0.0f;
-	samplerCreateInfo.maxLod = FLT_MAX;
-	samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-	samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
-
-	// vkCreateSampler
-	VkSampler sampler;
-	VK_CHECK(vkCreateSampler(device, &samplerCreateInfo, VK_NULL_HANDLE, &sampler));
-	return sampler;
 }
 
 // CreatePipelineLayout

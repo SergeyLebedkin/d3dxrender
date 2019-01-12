@@ -184,6 +184,9 @@ VkFramebuffer CreateFramebuffer(VkDevice device, VkRenderPass renderPass, std::v
 // CreateBuffer
 VkBuffer CreateBuffer(VkDevice device, VkDeviceSize size, VkBufferUsageFlags usage);
 
+// CreateSampler
+VkSampler CreateSampler(VkDevice device);
+
 // CreateShaderModuleFromFile
 VkShaderModule CreateShaderModuleFromFile(VkDevice device, const char* fileName);
 
@@ -197,13 +200,10 @@ VkDescriptorPool CreateDescriptorPool(VkDevice device);
 VkDescriptorSet AllocateDescriptorSet(VkDevice device, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout);
 
 // UpdateDescriptorSets
-void UpdateDescriptorSets(VkDevice device, VkDescriptorSet descriptorSet, VkImageView imageView, VkSampler sampler);
+void UpdateDescriptorSets(VkDevice device, VkDescriptorSet descriptorSet, VkImageView imageView, VkSampler sampler, VkBuffer mvpBuffer);
 
 // CreateDescriptorSetLayout
 VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice device);
-
-// CreateSampler
-VkSampler CreateSampler(VkDevice device);
 
 // CreatePipelineLayout
 VkPipelineLayout CreatePipelineLayout(VkDevice device, VkDescriptorSetLayout descriptorSetLayout);

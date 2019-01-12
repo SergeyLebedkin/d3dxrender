@@ -33,6 +33,9 @@ private:
 	VmaAllocation    mModelImageMemory = VK_NULL_HANDLE;
 	VkImageView      mModelImageView = VK_NULL_HANDLE;
 	VkSampler        mSampler = VK_NULL_HANDLE;
+	// uniforms
+	VkBuffer         mModelUniformMVP = VK_NULL_HANDLE;
+	VmaAllocation    mModelUniformMemoryMVP = VK_NULL_HANDLE;
 	// vertex
 	VkBuffer         mModelVertexBufferPos = VK_NULL_HANDLE;
 	VkBuffer         mModelVertexBufferNorm = VK_NULL_HANDLE;

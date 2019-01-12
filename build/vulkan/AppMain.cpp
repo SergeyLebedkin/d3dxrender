@@ -269,12 +269,14 @@ void CAppMain::Init(const HWND hWnd)
 	loadModelObjFromFile("./models/tea.obj", "./models");
 	loadTextureFromFile("./models/rose.jpg");
 
+	mDeviceInfo.CreateBuffer(sizeof(mWVP), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, mModelUniformMVP, mModelUniformMemoryMVP);
+
 	mDescriptorPool = CreateDescriptorPool(mDeviceInfo.device);
 	assert(mDescriptorPool);
 
  	mDescriptorSet = AllocateDescriptorSet(mDeviceInfo.device, mDescriptorPool, mDescriptorSetLayout);
  	assert(mDescriptorSet);
- 	UpdateDescriptorSets(mDeviceInfo.device, mDescriptorSet, mModelImageView, mSampler);
+ 	UpdateDescriptorSets(mDeviceInfo.device, mDescriptorSet, mModelImageView, mSampler, mModelUniformMVP);
 }
 
 // Created SL-160225
@@ -282,6 +284,7 @@ void CAppMain::Destroy()
 {
 	vkDestroyDescriptorPool(mDeviceInfo.device, mDescriptorPool, VK_NULL_HANDLE);
 
+	vmaDestroyBuffer(mDeviceInfo.allocator, mModelUniformMVP, mModelUniformMemoryMVP);
 	vkDestroyImageView(mDeviceInfo.device, mModelImageView, VK_NULL_HANDLE);
 	vmaDestroyImage(mDeviceInfo.allocator, mModelImage, mModelImageMemory);
 	vmaDestroyBuffer(mDeviceInfo.allocator, mModelIndexBuffer, mModelIndexMemory);
@@ -315,6 +318,9 @@ void CAppMain::Render()
 	extend2d.height = mSwapchainInfo.viewportHeight;
 	extend2d.width = mSwapchainInfo.viewportWidth;
 
+	// update MVP uniform buffer
+	mDeviceInfo.WriteBuffer(&mWVP, sizeof(mWVP), mModelUniformMVP, mModelUniformMemoryMVP);
+
 	// refill command buffer (RENDER CURRENT FRAME TO CURRENT FRAME BUFFER)
 	FillCommandBuffer(mCommandBuffer, mGraphicsPipeline, mPipelineLayout, mDescriptorSet,
 		mRenderPass, framebuffer, extend2d, 
@@ -342,14 +348,15 @@ void CAppMain::Update(float deltaTime)
 
 	// mat world
 	static float angle = 0.0f;
-	DirectX::XMMATRIX matRotate = DirectX::XMMatrixRotationZ(angle += deltaTime);
+	//DirectX::XMMATRIX matRotate = DirectX::XMMatrixRotationX(angle) * DirectX::XMMatrixRotationY(angle) * DirectX::XMMatrixRotationZ(angle += deltaTime);
+	DirectX::XMMATRIX matRotate = DirectX::XMMatrixRotationX(angle/16.0f) * DirectX::XMMatrixRotationY(angle += deltaTime);
 	DirectX::XMMATRIX matScale = DirectX::XMMatrixScaling(1.0f, 1.0f, 1.0f);
 	DirectX::XMMATRIX matTranslate = DirectX::XMMatrixTranslation(0.0f, 0.0f, 0.0f);
 	DirectX::XMMATRIX matWorld = matRotate * matScale * matTranslate;
 
 	// mat view
 	DirectX::XMMATRIX matView = DirectX::XMMatrixLookAtRH(
-		DirectX::XMVectorSet(0.0f, 0.0f, 10.0f, 1.0f), // the camera position
+		DirectX::XMVectorSet(0.0f, 0.0f, 40.0f, 1.0f), // the camera position
 		DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),  // the look-at position
 		DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f)   // the up direction
 	);

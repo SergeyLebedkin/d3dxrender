@@ -1,5 +1,4 @@
 #include "AppMain.hpp"
-#include "Meshes.teapot.h"
 #include "utils/stb_image.h"
 #include "utils/tiny_obj_loader.h"
 #include <iostream>
@@ -196,7 +195,7 @@ void CAppMain::Init(const HWND hWnd)
 	};
 
 	// extensions
-	std::vector<const char *> enabledDeviceExtensionNames = {
+	std::vector<const char *> enabledDeviceExtensionNames{
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME
 	};
 

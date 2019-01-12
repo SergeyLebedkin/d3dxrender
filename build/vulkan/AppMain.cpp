@@ -55,9 +55,9 @@ void FillCommandBuffer(
 	// VkViewport - viewport
 	VkViewport viewport{};
 	viewport.x = 0.0f;
-	viewport.y = 0.0f;
+	viewport.y = (float)extent2D.height;
 	viewport.width = (float)extent2D.width;
-	viewport.height = (float)extent2D.height;
+	viewport.height = -(float)extent2D.height;
 	viewport.minDepth = 0.5f;
 	viewport.maxDepth = 1.0f;
 

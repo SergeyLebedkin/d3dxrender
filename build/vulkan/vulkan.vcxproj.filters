@@ -44,6 +44,9 @@
     <Filter Include="utils">
       <UniqueIdentifier>{9381b7c4-3c08-4c59-beae-29fe92d1cd84}</UniqueIdentifier>
     </Filter>
+    <Filter Include="textures">
+      <UniqueIdentifier>{ffd2bb5b-9978-475b-a159-41a2c61215e1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="shaders\base.frag.glsl">
@@ -52,5 +55,10 @@
     <CustomBuild Include="shaders\base.vert.glsl">
       <Filter>shaders</Filter>
     </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="textures\texture.png">
+      <Filter>textures</Filter>
+    </Image>
   </ItemGroup>
 </Project>

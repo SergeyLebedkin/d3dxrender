@@ -69,9 +69,9 @@ void FillCommandBuffer(
 	scissor.extent.height = extent2D.height;
 
 	// VkDeviceSize
-	VkDeviceSize offsets[] = { 0, 0, 0 };
+	VkDeviceSize offsets[] = { 0 };
 
-	VkBuffer buffers[] = { vertexBufferPos, vertexBufferNorm, vertexBufferTexCoords };
+	//VkBuffer buffers[] = { vertexBufferPos, vertexBufferNorm, vertexBufferTexCoords };
 
 	// GO RENDER
 	vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -80,10 +80,11 @@ void FillCommandBuffer(
 	
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, VK_NULL_HANDLE);
-	vkCmdBindVertexBuffers(commandBuffer, 0, 3, buffers, offsets);
-	//vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-	//vkCmdDrawIndexed(commandBuffer, sizeof(teapot_indices)/4, 1, 0, 0, 0);
-	vkCmdDraw(commandBuffer, size, 1, 0, 0);
+	//vkCmdBindVertexBuffers(commandBuffer, 0, 3, buffers, offsets);
+	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBufferPos, offsets);
+	vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+	vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);
+	//vkCmdDraw(commandBuffer, size, 1, 0, 0);
 	
 	vkCmdEndRenderPass(commandBuffer);
 
@@ -205,16 +206,16 @@ void CAppMain::Init(const HWND hWnd)
 
 	// VkVertexInputBindingDescription - vertexBindingDescriptions
 	std::vector<VkVertexInputBindingDescription> vertexBindingDescriptions{
-		{ 0, sizeof(float) * 3, VK_VERTEX_INPUT_RATE_VERTEX },
-		{ 1, sizeof(float) * 3, VK_VERTEX_INPUT_RATE_VERTEX },
-		{ 2, sizeof(float) * 2, VK_VERTEX_INPUT_RATE_VERTEX },
+		{ 0, sizeof(CUSTOMVERTEX), VK_VERTEX_INPUT_RATE_VERTEX },
+		//{ 1, sizeof(float) * 4, VK_VERTEX_INPUT_RATE_VERTEX },
+		//{ 2, sizeof(float) * 2, VK_VERTEX_INPUT_RATE_VERTEX },
 	};
 
 	// VkVertexInputAttributeDescription - vertexAttributeDescriptions
 	std::vector<VkVertexInputAttributeDescription> vertexAttributeDescriptions = {
-		{ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 }, // position
-		{ 1, 1, VK_FORMAT_R32G32B32_SFLOAT, 0 }, // normal
-		{ 2, 2, VK_FORMAT_R32G32_SFLOAT, 0 },    // texture coordinates
+		{ 0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0 }, // position
+		{ 1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 16 }, // normal
+		{ 2, 0, VK_FORMAT_R32G32_SFLOAT, 32 },    // texture coordinates
 	};
 
 	// VkPipelineVertexInputStateCreateInfo
@@ -266,8 +267,11 @@ void CAppMain::Init(const HWND hWnd)
 	mSampler = CreateSampler(mDeviceInfo.device);
 	assert(mSampler);
 
-	loadModelObjFromFile("./models/tea.obj", "./models");
-	loadTextureFromFile("./models/rose.jpg");
+	//loadModelObjFromFile("./models/tea.obj", "./models");
+	mDeviceInfo.CreateBuffer(vertices, sizeof(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mModelVertexBufferPos, mModelVertexMemoryPos);
+	mDeviceInfo.CreateBuffer(indexes, sizeof(indexes), VK_BUFFER_USAGE_INDEX_BUFFER_BIT, mModelIndexBuffer, mModelIndexMemory);
+
+	loadTextureFromFile("./textures/texture.png");
 
 	mDeviceInfo.CreateBuffer(sizeof(mWVP), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, mModelUniformMVP, mModelUniformMemoryMVP);
 
@@ -288,8 +292,8 @@ void CAppMain::Destroy()
 	vkDestroyImageView(mDeviceInfo.device, mModelImageView, VK_NULL_HANDLE);
 	vmaDestroyImage(mDeviceInfo.allocator, mModelImage, mModelImageMemory);
 	vmaDestroyBuffer(mDeviceInfo.allocator, mModelIndexBuffer, mModelIndexMemory);
-	vmaDestroyBuffer(mDeviceInfo.allocator, mModelVertexBufferTexCoord, mModelVertexMemoryTexCoord);
-	vmaDestroyBuffer(mDeviceInfo.allocator, mModelVertexBufferNorm, mModelVertexMemoryNorm);
+	//vmaDestroyBuffer(mDeviceInfo.allocator, mModelVertexBufferTexCoord, mModelVertexMemoryTexCoord);
+	//vmaDestroyBuffer(mDeviceInfo.allocator, mModelVertexBufferNorm, mModelVertexMemoryNorm);
 	vmaDestroyBuffer(mDeviceInfo.allocator, mModelVertexBufferPos, mModelVertexMemoryPos);
 	
 	vkDestroySampler(mDeviceInfo.device, mSampler, VK_NULL_HANDLE);
@@ -348,15 +352,14 @@ void CAppMain::Update(float deltaTime)
 
 	// mat world
 	static float angle = 0.0f;
-	//DirectX::XMMATRIX matRotate = DirectX::XMMatrixRotationX(angle) * DirectX::XMMatrixRotationY(angle) * DirectX::XMMatrixRotationZ(angle += deltaTime);
-	DirectX::XMMATRIX matRotate = DirectX::XMMatrixRotationX(angle/16.0f) * DirectX::XMMatrixRotationY(angle += deltaTime);
+	DirectX::XMMATRIX matRotate = DirectX::XMMatrixRotationZ(angle += deltaTime);
 	DirectX::XMMATRIX matScale = DirectX::XMMatrixScaling(1.0f, 1.0f, 1.0f);
 	DirectX::XMMATRIX matTranslate = DirectX::XMMatrixTranslation(0.0f, 0.0f, 0.0f);
 	DirectX::XMMATRIX matWorld = matRotate * matScale * matTranslate;
 
 	// mat view
 	DirectX::XMMATRIX matView = DirectX::XMMatrixLookAtRH(
-		DirectX::XMVectorSet(0.0f, 0.0f, 40.0f, 1.0f), // the camera position
+		DirectX::XMVectorSet(0.0f, 0.0f, 10.0f, 1.0f), // the camera position
 		DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),  // the look-at position
 		DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f)   // the up direction
 	);

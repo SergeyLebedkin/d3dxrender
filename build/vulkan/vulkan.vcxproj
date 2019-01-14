@@ -209,6 +209,7 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="utils\stb_image.cc" />
     <ClCompile Include="utils\tiny_obj_loader.cc" />
+    <ClCompile Include="vkutils\vkmesh.cpp" />
     <ClCompile Include="vkutils\VmaUsage.cpp" />
     <ClCompile Include="vkutils\VulkanHelpers.cpp" />
   </ItemGroup>
@@ -216,6 +217,7 @@
     <ClInclude Include="AppMain.hpp" />
     <ClInclude Include="utils\stb_image.h" />
     <ClInclude Include="utils\tiny_obj_loader.h" />
+    <ClInclude Include="vkutils\vkmesh.hpp" />
     <ClInclude Include="vkutils\vk_mem_alloc.h" />
     <ClInclude Include="vkutils\VmaUsage.h" />
     <ClInclude Include="vkutils\VulkanHelpers.hpp" />

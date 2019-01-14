@@ -15,6 +15,9 @@
     <ClCompile Include="utils\stb_image.cc">
       <Filter>utils</Filter>
     </ClCompile>
+    <ClCompile Include="vkutils\vkmesh.cpp">
+      <Filter>vkutils</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AppMain.hpp" />
@@ -32,6 +35,9 @@
     </ClInclude>
     <ClInclude Include="utils\stb_image.h">
       <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="vkutils\vkmesh.hpp">
+      <Filter>vkutils</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

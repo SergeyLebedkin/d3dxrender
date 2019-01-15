@@ -170,7 +170,7 @@ bool CAppMain::loadTextureFromFile(const char * fileName)
 	assert(mModelImageMemory);
 
 	// create image view
-	mModelImageView = CreateImageView(mDeviceInfo.device, mModelImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+	mModelImageView = CreateImageView(mDeviceInfo.mDevice, mModelImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
 	assert(mModelImageView);
 
 	// free image data
@@ -210,7 +210,7 @@ void CAppMain::Init(const HWND hWnd)
 	assert(mSurface);
 
 	mDeviceInfo.Initialize(mInstanceInfo.mPhysicalDeviceGPU, mSurface, physicalDeviceFeatures, enabledDeviceExtensionNames);
-	assert(mDeviceInfo.device);
+	assert(mDeviceInfo.mDevice);
 
 	mSwapchainInfo.Initialize(mDeviceInfo, mSurface);
 	assert(mSwapchainInfo.mSwapchain);
@@ -220,16 +220,16 @@ void CAppMain::Init(const HWND hWnd)
 	assert(mPipelineInfo.mPipelineLayout);
 	assert(mPipelineInfo.mPipeline);
 
-	mCommandBuffer = AllocateCommandBuffer(mDeviceInfo.device, mDeviceInfo.commandPool);
+	mCommandBuffer = AllocateCommandBuffer(mDeviceInfo.mDevice, mDeviceInfo.mCommandPool);
 	assert(mCommandBuffer);
 
-	mImageAvailableSemaphore = CreateSemaphore(mDeviceInfo.device);
+	mImageAvailableSemaphore = CreateSemaphore(mDeviceInfo.mDevice);
 	assert(mImageAvailableSemaphore);
 
-	mRenderFinishedSemaphore = CreateSemaphore(mDeviceInfo.device);
+	mRenderFinishedSemaphore = CreateSemaphore(mDeviceInfo.mDevice);
 	assert(mRenderFinishedSemaphore);
 
-	mSampler = CreateSampler(mDeviceInfo.device);
+	mSampler = CreateSampler(mDeviceInfo.mDevice);
 	assert(mSampler);
 
 	loadTextureFromFile("./textures/texture.png");
@@ -247,17 +247,17 @@ void CAppMain::Init(const HWND hWnd)
 // Created SL-160225
 void CAppMain::Destroy()
 {
-	vmaDestroyBuffer(mDeviceInfo.allocator, mModelUniformMVP, mModelUniformMemoryMVP);
-	vkDestroyImageView(mDeviceInfo.device, mModelImageView, VK_NULL_HANDLE);
-	vmaDestroyImage(mDeviceInfo.allocator, mModelImage, mModelImageMemory);
-	vmaDestroyBuffer(mDeviceInfo.allocator, mModelIndexBuffer, mModelIndexMemory);
+	vmaDestroyBuffer(mDeviceInfo.mAllocator, mModelUniformMVP, mModelUniformMemoryMVP);
+	vkDestroyImageView(mDeviceInfo.mDevice, mModelImageView, VK_NULL_HANDLE);
+	vmaDestroyImage(mDeviceInfo.mAllocator, mModelImage, mModelImageMemory);
+	vmaDestroyBuffer(mDeviceInfo.mAllocator, mModelIndexBuffer, mModelIndexMemory);
 	//vmaDestroyBuffer(mDeviceInfo.allocator, mModelVertexBufferTexCoord, mModelVertexMemoryTexCoord);
 	//vmaDestroyBuffer(mDeviceInfo.allocator, mModelVertexBufferNorm, mModelVertexMemoryNorm);
-	vmaDestroyBuffer(mDeviceInfo.allocator, mModelVertexBufferPos, mModelVertexMemoryPos);
+	vmaDestroyBuffer(mDeviceInfo.mAllocator, mModelVertexBufferPos, mModelVertexMemoryPos);
 	
-	vkDestroySampler(mDeviceInfo.device, mSampler, VK_NULL_HANDLE);
-	vkDestroySemaphore(mDeviceInfo.device, mRenderFinishedSemaphore, VK_NULL_HANDLE);
-	vkDestroySemaphore(mDeviceInfo.device, mImageAvailableSemaphore, VK_NULL_HANDLE);
+	vkDestroySampler(mDeviceInfo.mDevice, mSampler, VK_NULL_HANDLE);
+	vkDestroySemaphore(mDeviceInfo.mDevice, mRenderFinishedSemaphore, VK_NULL_HANDLE);
+	vkDestroySemaphore(mDeviceInfo.mDevice, mImageAvailableSemaphore, VK_NULL_HANDLE);
 	mPipelineInfo.DeInitialize();
 	mSwapchainInfo.DeInitialize();
 	vkDestroySurfaceKHR(mInstanceInfo.mInstance, mSurface, VK_NULL_HANDLE);
@@ -285,7 +285,7 @@ void CAppMain::Render()
 		mModelVertexBufferPos, mModelVertexBufferNorm, mModelVertexBufferTexCoord, mModelIndexBuffer, mVertexCount);
 
 	// submit render command buffer
-	QueueSubmit(mDeviceInfo.queueGraphics, mCommandBuffer, mImageAvailableSemaphore, mRenderFinishedSemaphore);
+	QueueSubmit(mDeviceInfo.mQueueGraphics, mCommandBuffer, mImageAvailableSemaphore, mRenderFinishedSemaphore);
 
 	// end frame
 	mSwapchainInfo.EndFrame(mRenderFinishedSemaphore);
@@ -328,6 +328,6 @@ void CAppMain::Update(float deltaTime)
 // Created SL-160225
 void CAppMain::SetViewportSize(WORD viewportWidth, WORD viewportHeight)
 {
-	VK_CHECK(vkQueueWaitIdle(mDeviceInfo.queuePresent));
+	VK_CHECK(vkQueueWaitIdle(mDeviceInfo.mQueuePresent));
 	mSwapchainInfo.ReInitialize(mDeviceInfo, mSurface);
 };

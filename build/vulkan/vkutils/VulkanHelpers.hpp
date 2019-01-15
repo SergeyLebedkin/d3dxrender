@@ -57,37 +57,37 @@ public:
 struct VulkanDeviceInfo 
 {
 	// base handles
-	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-	VkSurfaceKHR     surface = VK_NULL_HANDLE;
-	VkDevice         device = VK_NULL_HANDLE;
-	VmaAllocator     allocator = VK_NULL_HANDLE;
+	VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
+	VkSurfaceKHR     mSurface = VK_NULL_HANDLE;
+	VkDevice         mDevice = VK_NULL_HANDLE;
+	VmaAllocator     mAllocator = VK_NULL_HANDLE;
 
 	// properties
-	VkPhysicalDeviceFeatures             deviceFeatures;
-	VkPhysicalDeviceProperties           deviceProperties;
-	VkPhysicalDeviceMemoryProperties     deviceMemoryProperties;
-	std::vector<VkQueueFamilyProperties> queueFamilyProperties{};
-	std::vector<VkSurfaceFormatKHR>      surfaceFormats{};
-	std::vector<VkPresentModeKHR>        presentModes{};
+	VkPhysicalDeviceFeatures             mDeviceFeatures;
+	VkPhysicalDeviceProperties           mDeviceProperties;
+	VkPhysicalDeviceMemoryProperties     mDeviceMemoryProperties;
+	std::vector<VkQueueFamilyProperties> mQueueFamilyProperties{};
+	std::vector<VkSurfaceFormatKHR>      mSurfaceFormats{};
+	std::vector<VkPresentModeKHR>        mPresentModes{};
 
 	// memory type indexes
-	uint32_t memoryDeviceLocalTypeIndex = UINT32_MAX;
-	uint32_t memoryHostVisibleTypeIndex = UINT32_MAX;
+	uint32_t mMemoryDeviceLocalTypeIndex = UINT32_MAX;
+	uint32_t mMemoryHostVisibleTypeIndex = UINT32_MAX;
 
 	// queue family indexes
-	uint32_t queueFamilyIndexGraphics = UINT32_MAX;
-	uint32_t queueFamilyIndexCompute = UINT32_MAX;
-	uint32_t queueFamilyIndexTransfer = UINT32_MAX;
-	uint32_t queueFamilyIndexPresent = UINT32_MAX;
+	uint32_t mQueueFamilyIndexGraphics = UINT32_MAX;
+	uint32_t mQueueFamilyIndexCompute = UINT32_MAX;
+	uint32_t mQueueFamilyIndexTransfer = UINT32_MAX;
+	uint32_t mQueueFamilyIndexPresent = UINT32_MAX;
 
 	// queues
-	VkQueue queueGraphics = VK_NULL_HANDLE;
-	VkQueue queueCompute = VK_NULL_HANDLE;
-	VkQueue queueTransfer = VK_NULL_HANDLE;
-	VkQueue queuePresent = VK_NULL_HANDLE;
+	VkQueue mQueueGraphics = VK_NULL_HANDLE;
+	VkQueue mQueueCompute = VK_NULL_HANDLE;
+	VkQueue mQueueTransfer = VK_NULL_HANDLE;
+	VkQueue mQueuePresent = VK_NULL_HANDLE;
 
 	// command pool
-	VkCommandPool commandPool = VK_NULL_HANDLE;
+	VkCommandPool mCommandPool = VK_NULL_HANDLE;
 
 	// Init/DeInit functions
 	void Initialize(

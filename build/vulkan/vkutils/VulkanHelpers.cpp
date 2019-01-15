@@ -154,69 +154,69 @@ void VulkanDeviceInfo::Initialize(VkPhysicalDevice physicalDevice, VkSurfaceKHR 
 	std::vector<const char *>& enabledExtensionNames)
 {
 	// store parameters
-	this->physicalDevice = physicalDevice;
-	this->surface = surface;
+	mPhysicalDevice = physicalDevice;
+	mSurface = surface;
 
 	// VkPhysicalDeviceMemoryProperties
-	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &deviceMemoryProperties);
-	vkGetPhysicalDeviceFeatures(physicalDevice, &deviceFeatures);
-	vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
+	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &mDeviceMemoryProperties);
+	vkGetPhysicalDeviceFeatures(physicalDevice, &mDeviceFeatures);
+	vkGetPhysicalDeviceProperties(physicalDevice, &mDeviceProperties);
 
 	// get queue family properties count
 	uint32_t queueFamilyPropertiesCount = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertiesCount, nullptr);
 	assert(queueFamilyPropertiesCount);
 	// get queue family properties list
-	queueFamilyProperties.resize(queueFamilyPropertiesCount);
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertiesCount, queueFamilyProperties.data());
+	mQueueFamilyProperties.resize(queueFamilyPropertiesCount);
+	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyPropertiesCount, mQueueFamilyProperties.data());
 
 	// get surface formats count
 	uint32_t formatsCount = 0;
-	vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatsCount, nullptr);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(mPhysicalDevice, mSurface, &formatsCount, nullptr);
 	assert(formatsCount);
 	// get surface formats list
-	surfaceFormats.resize(formatsCount);
-	vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatsCount, surfaceFormats.data());
+	mSurfaceFormats.resize(formatsCount);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(mPhysicalDevice, mSurface, &formatsCount, mSurfaceFormats.data());
 
 	// get present modes count
 	uint32_t presentModesCount = 0;
 	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModesCount, nullptr);
 	assert(presentModesCount);
 	// get present modes list
-	presentModes.resize(presentModesCount);
-	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModesCount, presentModes.data());
+	mPresentModes.resize(presentModesCount);
+	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModesCount, mPresentModes.data());
 
 	// find device local memory type index
-	memoryDeviceLocalTypeIndex = FindMemoryHeapIndexByFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	memoryHostVisibleTypeIndex = FindMemoryHeapIndexByFlags(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	mMemoryDeviceLocalTypeIndex = FindMemoryHeapIndexByFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	mMemoryHostVisibleTypeIndex = FindMemoryHeapIndexByFlags(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 	// get graphics, queue and transfer queue family property index
-	queueFamilyIndexCompute = FindQueueFamilyIndexByFlags(VK_QUEUE_COMPUTE_BIT);
-	queueFamilyIndexTransfer = FindQueueFamilyIndexByFlags(VK_QUEUE_TRANSFER_BIT);
-	FindPresentQueueFamilyIndexes(queueFamilyIndexGraphics, queueFamilyIndexPresent);
-	assert(queueFamilyIndexGraphics < UINT32_MAX);
-	assert(queueFamilyIndexPresent < UINT32_MAX);
+	mQueueFamilyIndexCompute = FindQueueFamilyIndexByFlags(VK_QUEUE_COMPUTE_BIT);
+	mQueueFamilyIndexTransfer = FindQueueFamilyIndexByFlags(VK_QUEUE_TRANSFER_BIT);
+	FindPresentQueueFamilyIndexes(mQueueFamilyIndexGraphics, mQueueFamilyIndexPresent);
+	assert(mQueueFamilyIndexGraphics < UINT32_MAX);
+	assert(mQueueFamilyIndexPresent < UINT32_MAX);
 
 	// deviceQueueCreateInfos
 	std::vector<VkDeviceQueueCreateInfo> deviceQueueCreateInfos;
 
 	// VkDeviceQueueCreateInfo - graphics
-	VkDeviceQueueCreateInfo deviceQueueCreateInfoGraphics = InitDeviceQueueCreateInfo(queueFamilyIndexGraphics);
+	VkDeviceQueueCreateInfo deviceQueueCreateInfoGraphics = InitDeviceQueueCreateInfo(mQueueFamilyIndexGraphics);
 	deviceQueueCreateInfos.push_back(deviceQueueCreateInfoGraphics);
 
 	// VkDeviceQueueCreateInfo - compute
-	VkDeviceQueueCreateInfo deviceQueueCreateInfoCompute = InitDeviceQueueCreateInfo(queueFamilyIndexCompute);
-	if (queueFamilyIndexGraphics != queueFamilyIndexCompute)
+	VkDeviceQueueCreateInfo deviceQueueCreateInfoCompute = InitDeviceQueueCreateInfo(mQueueFamilyIndexCompute);
+	if (mQueueFamilyIndexGraphics != mQueueFamilyIndexCompute)
 		deviceQueueCreateInfos.push_back(deviceQueueCreateInfoCompute);
 
 	// VkDeviceQueueCreateInfo - transfer
-	VkDeviceQueueCreateInfo deviceQueueCreateInfoTransfer = InitDeviceQueueCreateInfo(queueFamilyIndexTransfer);
-	if (queueFamilyIndexGraphics != queueFamilyIndexTransfer)
+	VkDeviceQueueCreateInfo deviceQueueCreateInfoTransfer = InitDeviceQueueCreateInfo(mQueueFamilyIndexTransfer);
+	if (mQueueFamilyIndexGraphics != mQueueFamilyIndexTransfer)
 		deviceQueueCreateInfos.push_back(deviceQueueCreateInfoTransfer);
 
 	// VkDeviceQueueCreateInfo - present
-	VkDeviceQueueCreateInfo deviceQueueCreateInfoPresent = InitDeviceQueueCreateInfo(queueFamilyIndexPresent);
-	if (queueFamilyIndexGraphics != queueFamilyIndexPresent)
+	VkDeviceQueueCreateInfo deviceQueueCreateInfoPresent = InitDeviceQueueCreateInfo(mQueueFamilyIndexPresent);
+	if (mQueueFamilyIndexGraphics != mQueueFamilyIndexPresent)
 		deviceQueueCreateInfos.push_back(deviceQueueCreateInfoPresent);
 		
 	// VkDeviceCreateInfo
@@ -233,44 +233,44 @@ void VulkanDeviceInfo::Initialize(VkPhysicalDevice physicalDevice, VkSurfaceKHR 
 	deviceCreateInfo.pEnabledFeatures = &physicalDeviceFeatures;
 
 	// vkCreateDevice
-	VK_CHECK(vkCreateDevice(physicalDevice, &deviceCreateInfo, VK_NULL_HANDLE, &device));
-	assert(device);
+	VK_CHECK(vkCreateDevice(mPhysicalDevice, &deviceCreateInfo, VK_NULL_HANDLE, &mDevice));
+	assert(mDevice);
 
 	// vkGetDeviceQueue
-	vkGetDeviceQueue(device, queueFamilyIndexGraphics, 0, &queueGraphics);
-	assert(queueGraphics);
-	vkGetDeviceQueue(device, queueFamilyIndexCompute, 0, &queueCompute);
-	assert(queueCompute);
-	vkGetDeviceQueue(device, queueFamilyIndexTransfer, 0, &queueTransfer);
-	assert(queueTransfer);
-	vkGetDeviceQueue(device, queueFamilyIndexPresent, 0, &queuePresent);
-	assert(queuePresent);
+	vkGetDeviceQueue(mDevice, mQueueFamilyIndexGraphics, 0, &mQueueGraphics);
+	assert(mQueueGraphics);
+	vkGetDeviceQueue(mDevice, mQueueFamilyIndexCompute, 0, &mQueueCompute);
+	assert(mQueueCompute);
+	vkGetDeviceQueue(mDevice, mQueueFamilyIndexTransfer, 0, &mQueueTransfer);
+	assert(mQueueTransfer);
+	vkGetDeviceQueue(mDevice, mQueueFamilyIndexPresent, 0, &mQueuePresent);
+	assert(mQueuePresent);
 
 	VmaAllocatorCreateInfo allocatorCreateInfo = {};
 	allocatorCreateInfo.physicalDevice = physicalDevice;
-	allocatorCreateInfo.device = device;
+	allocatorCreateInfo.device = mDevice;
 	allocatorCreateInfo.flags = 0;
-	VK_CHECK(vmaCreateAllocator(&allocatorCreateInfo, &allocator));
+	VK_CHECK(vmaCreateAllocator(&allocatorCreateInfo, &mAllocator));
 
 	// VkCommandPoolCreateInfo
 	VkCommandPoolCreateInfo commandPoolCreateInfo{};
 	commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	commandPoolCreateInfo.pNext = VK_NULL_HANDLE;
 	commandPoolCreateInfo.flags = 0;
-	commandPoolCreateInfo.queueFamilyIndex = queueFamilyIndexGraphics;
-	VK_CHECK(vkCreateCommandPool(device, &commandPoolCreateInfo, VK_NULL_HANDLE, &commandPool));
-	assert(commandPool);
+	commandPoolCreateInfo.queueFamilyIndex = mQueueFamilyIndexGraphics;
+	VK_CHECK(vkCreateCommandPool(mDevice, &commandPoolCreateInfo, VK_NULL_HANDLE, &mCommandPool));
+	assert(mCommandPool);
 }
 
 // DeInitialize
 void VulkanDeviceInfo::DeInitialize()
 {
-	vkDestroyCommandPool(device, commandPool, VK_NULL_HANDLE);
-	commandPool = VK_NULL_HANDLE;
-	vmaDestroyAllocator(allocator);
-	allocator = VK_NULL_HANDLE;
-	vkDestroyDevice(device, VK_NULL_HANDLE);
-	device = VK_NULL_HANDLE;
+	vkDestroyCommandPool(mDevice, mCommandPool, VK_NULL_HANDLE);
+	mCommandPool = VK_NULL_HANDLE;
+	vmaDestroyAllocator(mAllocator);
+	mAllocator = VK_NULL_HANDLE;
+	vkDestroyDevice(mDevice, VK_NULL_HANDLE);
+	mDevice = VK_NULL_HANDLE;
 }
 
 // FindPresentQueueFamilyIndex
@@ -279,13 +279,13 @@ void VulkanDeviceInfo::FindPresentQueueFamilyIndexes(uint32_t& graphicsIndex, ui
 	graphicsIndex = UINT32_MAX;
 	presentIndex = UINT32_MAX;
 	// find presentation queue family property index
-	for (uint32_t i = 0; i < queueFamilyProperties.size(); i++)
+	for (uint32_t i = 0; i < mQueueFamilyProperties.size(); i++)
 	{
-		if ((queueFamilyProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+		if ((mQueueFamilyProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
 			graphicsIndex = i;
 			// get present queue family property index
 			VkBool32 presentSupport = false;
-			vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport);
+			vkGetPhysicalDeviceSurfaceSupportKHR(mPhysicalDevice, i, mSurface, &presentSupport);
 			if (presentSupport) 
 			{
 				graphicsIndex = i;
@@ -301,8 +301,8 @@ void VulkanDeviceInfo::FindPresentQueueFamilyIndexes(uint32_t& graphicsIndex, ui
 uint32_t VulkanDeviceInfo::FindQueueFamilyIndexByFlags(uint32_t queueFlags) const
 {
 	// get graphics queue family property index
-	for (uint32_t i = 0; i < queueFamilyProperties.size(); i++)
-		if ((queueFamilyProperties[i].queueFlags & queueFlags) == queueFlags)
+	for (uint32_t i = 0; i < mQueueFamilyProperties.size(); i++)
+		if ((mQueueFamilyProperties[i].queueFlags & queueFlags) == queueFlags)
 			return i;
 	assert(0);
 	// return default
@@ -313,8 +313,8 @@ uint32_t VulkanDeviceInfo::FindQueueFamilyIndexByFlags(uint32_t queueFlags) cons
 uint32_t VulkanDeviceInfo::FindMemoryHeapIndexByFlags(VkMemoryPropertyFlags propertyFlags) const
 {
 	// find device local memory type index
-	for (uint32_t i = 0; i < deviceMemoryProperties.memoryTypeCount; i++)
-		if ((deviceMemoryProperties.memoryTypes[i].propertyFlags & propertyFlags) == propertyFlags)
+	for (uint32_t i = 0; i < mDeviceMemoryProperties.memoryTypeCount; i++)
+		if ((mDeviceMemoryProperties.memoryTypes[i].propertyFlags & propertyFlags) == propertyFlags)
 			return i;
 	assert(0);
 	// return default
@@ -325,8 +325,8 @@ uint32_t VulkanDeviceInfo::FindMemoryHeapIndexByFlags(VkMemoryPropertyFlags prop
 uint32_t VulkanDeviceInfo::FindMemoryHeapIndexByBits(uint32_t bits, VkMemoryPropertyFlags propertyFlags) const
 {
 	// find device local memory type index
-	for (uint32_t i = 0; i < deviceMemoryProperties.memoryTypeCount; i++)
-		if ((bits & 1 << i) && ((deviceMemoryProperties.memoryTypes[i].propertyFlags & propertyFlags) == propertyFlags))
+	for (uint32_t i = 0; i < mDeviceMemoryProperties.memoryTypeCount; i++)
+		if ((bits & 1 << i) && ((mDeviceMemoryProperties.memoryTypes[i].propertyFlags & propertyFlags) == propertyFlags))
 			return i;
 	assert(0);
 	// return default
@@ -336,15 +336,15 @@ uint32_t VulkanDeviceInfo::FindMemoryHeapIndexByBits(uint32_t bits, VkMemoryProp
 // CheckMemoryHeapIndexByBits
 uint32_t VulkanDeviceInfo::CheckMemoryHeapIndexByBits(uint32_t index, VkMemoryPropertyFlags propertyFlags) const
 {
-	assert(index < deviceMemoryProperties.memoryTypeCount);
-	return ((deviceMemoryProperties.memoryTypes[index].propertyFlags & propertyFlags) == propertyFlags);
+	assert(index < mDeviceMemoryProperties.memoryTypeCount);
+	return ((mDeviceMemoryProperties.memoryTypes[index].propertyFlags & propertyFlags) == propertyFlags);
 }
 
 // FindSurfaceFormat
 VkSurfaceFormatKHR VulkanDeviceInfo::FindSurfaceFormat() const
 {
 	// get default surface format
-	if ((surfaceFormats.size() == 1) && (surfaceFormats[0].format == VK_FORMAT_UNDEFINED)) {
+	if ((mSurfaceFormats.size() == 1) && (mSurfaceFormats[0].format == VK_FORMAT_UNDEFINED)) {
 		VkSurfaceFormatKHR format;
 		format.format = VK_FORMAT_R8G8B8A8_SNORM;
 		format.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
@@ -352,34 +352,34 @@ VkSurfaceFormatKHR VulkanDeviceInfo::FindSurfaceFormat() const
 	};
 
 	// try to find HDR format
-	for (const auto& surfaceFormat : surfaceFormats)
+	for (const auto& surfaceFormat : mSurfaceFormats)
 		if ((surfaceFormat.format == VK_FORMAT_A2R10G10B10_SNORM_PACK32) || (surfaceFormat.format == VK_FORMAT_A2B10G10R10_SNORM_PACK32))
 			return surfaceFormat;
 
 	// try to find standard format
-	for (const auto& surfaceFormat : surfaceFormats)
+	for (const auto& surfaceFormat : mSurfaceFormats)
 		if ((surfaceFormat.format == VK_FORMAT_R8G8B8A8_SNORM) || (surfaceFormat.format == VK_FORMAT_B8G8R8_SNORM))
 			return surfaceFormat;
 
 	// return default
-	return surfaceFormats[0];
+	return mSurfaceFormats[0];
 }
 
 // FindPresentMode()
 VkPresentModeKHR VulkanDeviceInfo::FindPresentMode() const
 {
 	// try to find MAILBOX mode
-	for (const auto& presentMode : presentModes)
+	for (const auto& presentMode : mPresentModes)
 		if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
 			return presentMode;
 
 	// try to find FIFO mode
-	for (const auto& presentMode : presentModes)
+	for (const auto& presentMode : mPresentModes)
 		if (presentMode == VK_PRESENT_MODE_FIFO_KHR)
 			return presentMode;
 
 	// return default
-	return presentModes[0];
+	return mPresentModes[0];
 }
 
 // CopyBuffers
@@ -390,12 +390,12 @@ void VulkanDeviceInfo::CopyBuffers(VkDeviceSize size, VkBuffer srcBuffer, VkBuff
 	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	commandBufferAllocateInfo.pNext = VK_NULL_HANDLE;
 	commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	commandBufferAllocateInfo.commandPool = commandPool;
+	commandBufferAllocateInfo.commandPool = mCommandPool;
 	commandBufferAllocateInfo.commandBufferCount = 1;
 
 	// VkCommandBuffer
 	VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-	VK_CHECK(vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &commandBuffer));
+	VK_CHECK(vkAllocateCommandBuffers(mDevice, &commandBufferAllocateInfo, &commandBuffer));
 	assert(commandBuffer);
 
 	// VkCommandBufferBeginInfo
@@ -422,11 +422,11 @@ void VulkanDeviceInfo::CopyBuffers(VkDeviceSize size, VkBuffer srcBuffer, VkBuff
 	submitInfo.pNext = VK_NULL_HANDLE;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffer;
-	VK_CHECK(vkQueueSubmit(queueGraphics, 1, &submitInfo, VK_NULL_HANDLE));
-	VK_CHECK(vkQueueWaitIdle(queueGraphics));
+	VK_CHECK(vkQueueSubmit(mQueueGraphics, 1, &submitInfo, VK_NULL_HANDLE));
+	VK_CHECK(vkQueueWaitIdle(mQueueGraphics));
 
 	// free command buffer
-	vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+	vkFreeCommandBuffers(mDevice, mCommandPool, 1, &commandBuffer);
 }
 
 // CreateBuffer (without initialization)
@@ -448,7 +448,7 @@ void VulkanDeviceInfo::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
 	allocCreateInfo.flags = 0;
 
 	// vmaCreateBuffer
-	VK_CHECK(vmaCreateBuffer(allocator, &bufferCreateInfo, &allocCreateInfo, &buffer, &allocation, VK_NULL_HANDLE));
+	VK_CHECK(vmaCreateBuffer(mAllocator, &bufferCreateInfo, &allocCreateInfo, &buffer, &allocation, VK_NULL_HANDLE));
 	assert(buffer);
 	assert(allocation);
 }
@@ -472,17 +472,17 @@ void VulkanDeviceInfo::WriteBuffer(const void* data, VkDeviceSize size, VkBuffer
 
 	// get memory buffer properties
 	VmaAllocationInfo allocationInfo{};
-	vmaGetAllocationInfo(allocator, allocation, &allocationInfo);
+	vmaGetAllocationInfo(mAllocator, allocation, &allocationInfo);
 	VkMemoryPropertyFlags memFlags;
-	vmaGetMemoryTypeProperties(allocator, allocationInfo.memoryType, &memFlags);
+	vmaGetMemoryTypeProperties(mAllocator, allocationInfo.memoryType, &memFlags);
 
 	// if target device memory is host visible, then just map/unmap memory to device memory
 	if ((memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
 		void* mappedData = nullptr;
-		vmaMapMemory(allocator, allocation, &mappedData);
+		vmaMapMemory(mAllocator, allocation, &mappedData);
 		assert(mappedData);
 		memcpy(mappedData, &data, size);
-		vmaUnmapMemory(allocator, allocation);
+		vmaUnmapMemory(mAllocator, allocation);
 	} 
 	else // if target device memory is NOT host visible, then we need use staging buffer
 	{
@@ -501,20 +501,20 @@ void VulkanDeviceInfo::WriteBuffer(const void* data, VkDeviceSize size, VkBuffer
 		// create staging buffer and memory
 		VkBuffer stagingBuffer = VK_NULL_HANDLE;
 		VmaAllocation stagingBufferAlloc = VK_NULL_HANDLE;
-		VK_CHECK(vmaCreateBuffer(allocator, &bufferCreateInfo, &allocCreateInfo, &stagingBuffer, &stagingBufferAlloc, VK_NULL_HANDLE));
+		VK_CHECK(vmaCreateBuffer(mAllocator, &bufferCreateInfo, &allocCreateInfo, &stagingBuffer, &stagingBufferAlloc, VK_NULL_HANDLE));
 
 		// map staging buffer and memory
 		void* mappedData = nullptr;
-		vmaMapMemory(allocator, stagingBufferAlloc, &mappedData);
+		vmaMapMemory(mAllocator, stagingBufferAlloc, &mappedData);
 		assert(mappedData);
 		memcpy(mappedData, data, size);
-		vmaUnmapMemory(allocator, stagingBufferAlloc);
+		vmaUnmapMemory(mAllocator, stagingBufferAlloc);
 
 		// copy buffers
 		CopyBuffers(size, stagingBuffer, buffer);
 
 		// destroy buffer and free memory
-		vmaDestroyBuffer(allocator, stagingBuffer, stagingBufferAlloc);
+		vmaDestroyBuffer(mAllocator, stagingBuffer, stagingBufferAlloc);
 	}
 }
 
@@ -526,12 +526,12 @@ void VulkanDeviceInfo::CopyImages(uint32_t width, uint32_t height, VkImage srcIm
 	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	commandBufferAllocateInfo.pNext = VK_NULL_HANDLE;
 	commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	commandBufferAllocateInfo.commandPool = commandPool;
+	commandBufferAllocateInfo.commandPool = mCommandPool;
 	commandBufferAllocateInfo.commandBufferCount = 1;
 
 	// VkCommandBuffer
 	VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-	VK_CHECK(vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &commandBuffer));
+	VK_CHECK(vkAllocateCommandBuffers(mDevice, &commandBufferAllocateInfo, &commandBuffer));
 	assert(commandBuffer);
 
 	// VkCommandBufferBeginInfo
@@ -607,11 +607,11 @@ void VulkanDeviceInfo::CopyImages(uint32_t width, uint32_t height, VkImage srcIm
 	submitInfo.pNext = VK_NULL_HANDLE;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffer;
-	VK_CHECK(vkQueueSubmit(queueGraphics, 1, &submitInfo, VK_NULL_HANDLE));
-	VK_CHECK(vkQueueWaitIdle(queueGraphics));
+	VK_CHECK(vkQueueSubmit(mQueueGraphics, 1, &submitInfo, VK_NULL_HANDLE));
+	VK_CHECK(vkQueueWaitIdle(mQueueGraphics));
 
 	// free command buffer
-	vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+	vkFreeCommandBuffers(mDevice, mCommandPool, 1, &commandBuffer);
 }
 
 // CreateImage
@@ -647,7 +647,7 @@ void VulkanDeviceInfo::CreateImage(uint32_t width, uint32_t height, VkFormat for
 	allocCreateInfo.flags = 0;
 
 	// vmaCreateImage
-	VK_CHECK(vmaCreateImage(allocator, &imageCreateInfo, &allocCreateInfo, &image, &allocation, VK_NULL_HANDLE));
+	VK_CHECK(vmaCreateImage(mAllocator, &imageCreateInfo, &allocCreateInfo, &image, &allocation, VK_NULL_HANDLE));
 	assert(image);
 }
 
@@ -665,17 +665,17 @@ void VulkanDeviceInfo::WriteImage(const void* data, uint32_t width, uint32_t hei
 {
 	// get memory buffer properties
 	VmaAllocationInfo allocationInfo{};
-	vmaGetAllocationInfo(allocator, allocation, &allocationInfo);
+	vmaGetAllocationInfo(mAllocator, allocation, &allocationInfo);
 	VkMemoryPropertyFlags memFlags;
-	vmaGetMemoryTypeProperties(allocator, allocationInfo.memoryType, &memFlags);
+	vmaGetMemoryTypeProperties(mAllocator, allocationInfo.memoryType, &memFlags);
 
 	// if target device memory is host visible, then just map/unmap memory to device memory
 	if ((memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
 		void* mappedData = nullptr;
-		vmaMapMemory(allocator, allocation, &mappedData);
+		vmaMapMemory(mAllocator, allocation, &mappedData);
 		assert(mappedData);
 		memcpy(mappedData, &data, width * height * 4);
-		vmaUnmapMemory(allocator, allocation);
+		vmaUnmapMemory(mAllocator, allocation);
 	}
 	else // if target device memory is NOT host visible, then we need use staging image
 	{
@@ -709,22 +709,22 @@ void VulkanDeviceInfo::WriteImage(const void* data, uint32_t width, uint32_t hei
 		VmaAllocation stagingImageAlloc = VK_NULL_HANDLE;
 
 		// vmaCreateImage
-		VK_CHECK(vmaCreateImage(allocator, &imageCreateInfo, &allocCreateInfo, &stagingImage, &stagingImageAlloc, VK_NULL_HANDLE));
+		VK_CHECK(vmaCreateImage(mAllocator, &imageCreateInfo, &allocCreateInfo, &stagingImage, &stagingImageAlloc, VK_NULL_HANDLE));
 		assert(stagingImage);
 		assert(stagingImageAlloc);
 
 		// map staging buffer and memory
 		void* mappedData = nullptr;
-		vmaMapMemory(allocator, stagingImageAlloc, &mappedData);
+		vmaMapMemory(mAllocator, stagingImageAlloc, &mappedData);
 		assert(mappedData);
 		memcpy(mappedData, data, width * height * 4);
-		vmaUnmapMemory(allocator, stagingImageAlloc);
+		vmaUnmapMemory(mAllocator, stagingImageAlloc);
 
 		// copy images
 		CopyImages(width, height, stagingImage, image);
 
 		// destroy buffer and free memory
-		vmaDestroyImage(allocator, stagingImage, stagingImageAlloc);
+		vmaDestroyImage(mAllocator, stagingImage, stagingImageAlloc);
 	}
 }
 
@@ -738,7 +738,7 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 	// store parameters
 	mDeviceInfo = &deviceInfo;
 	mSurface = surface;
-	assert(mDeviceInfo->device);
+	assert(mDeviceInfo->mDevice);
 	assert(surface);
 
 	// get parameters
@@ -747,7 +747,7 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 
 	// VkSurfaceCapabilitiesKHR
 	VkSurfaceCapabilitiesKHR surfaceCapabilitiesKHR{};
-	VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(mDeviceInfo->physicalDevice, surface, &surfaceCapabilitiesKHR));
+	VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(mDeviceInfo->mPhysicalDevice, surface, &surfaceCapabilitiesKHR));
 	mViewportWidth = surfaceCapabilitiesKHR.currentExtent.width;
 	mViewportHeight = surfaceCapabilitiesKHR.currentExtent.height;
 
@@ -772,23 +772,23 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 	swapchainCreateInfoKHR.oldSwapchain = VK_NULL_HANDLE;
 
 	// vkCreateSwapchainKHR
-	VK_CHECK(vkCreateSwapchainKHR(mDeviceInfo->device, &swapchainCreateInfoKHR, nullptr, &mSwapchain));
+	VK_CHECK(vkCreateSwapchainKHR(mDeviceInfo->mDevice, &swapchainCreateInfoKHR, nullptr, &mSwapchain));
 	assert(mSwapchain);
 
 	//////////////////////////////////////////////////////////////////////////
 
 	// swapChainImages
 	uint32_t imageColorsCount = 0;
-	vkGetSwapchainImagesKHR(mDeviceInfo->device, mSwapchain, &imageColorsCount, nullptr);
+	vkGetSwapchainImagesKHR(mDeviceInfo->mDevice, mSwapchain, &imageColorsCount, nullptr);
 	mImageColors.resize(imageColorsCount);
-	vkGetSwapchainImagesKHR(mDeviceInfo->device, mSwapchain, &imageColorsCount, mImageColors.data());
+	vkGetSwapchainImagesKHR(mDeviceInfo->mDevice, mSwapchain, &imageColorsCount, mImageColors.data());
 
 	// mSwapChainImageViews
 	mImageViewColors.clear();
 	mImageViewColors.reserve(imageColorsCount);
 	for (const auto& imageColor : mImageColors) {
 		// create image view
-		VkImageView imageView = CreateImageView(mDeviceInfo->device, imageColor, mSurfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT);
+		VkImageView imageView = CreateImageView(mDeviceInfo->mDevice, imageColor, mSurfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT);
 		assert(imageView);
 
 		// add image view
@@ -808,7 +808,7 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 	assert(mImageDepthStencilAllocation);
 
 	// VkImageView
-	mImageViewDepthStencil = CreateImageView(mDeviceInfo->device, mImageDepthStencil, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+	mImageViewDepthStencil = CreateImageView(mDeviceInfo->mDevice, mImageDepthStencil, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 	assert(mImageViewDepthStencil);
 
 	//////////////////////////////////////////////////////////////////////////
@@ -868,7 +868,7 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 	renderPassCreateInfo.pSubpasses = subpassDescriptions.data();
 
 	// vkCreateRenderPass
-	VK_CHECK(vkCreateRenderPass(mDeviceInfo->device, &renderPassCreateInfo, VK_NULL_HANDLE, &mRenderPass));
+	VK_CHECK(vkCreateRenderPass(mDeviceInfo->mDevice, &renderPassCreateInfo, VK_NULL_HANDLE, &mRenderPass));
 
 	//////////////////////////////////////////////////////////////////////////
 
@@ -878,7 +878,7 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 	for (const auto& imageViewColor : mImageViewColors) {
 		// create framebuffer
 		std::vector<VkImageView> imageViews = { imageViewColor, mImageViewDepthStencil };
-		VkFramebuffer framebuffer = CreateFramebuffer(mDeviceInfo->device, mRenderPass, imageViews, mViewportWidth, mViewportWidth);
+		VkFramebuffer framebuffer = CreateFramebuffer(mDeviceInfo->mDevice, mRenderPass, imageViews, mViewportWidth, mViewportWidth);
 		assert(framebuffer);
 
 		// add framebuffer
@@ -891,27 +891,27 @@ void VulkanSwapchainInfo::DeInitialize()
 {
 	// destroy framebuffers
 	for (const auto& framebuffer : mFramebuffers)
-		vkDestroyFramebuffer(mDeviceInfo->device, framebuffer, VK_NULL_HANDLE);
+		vkDestroyFramebuffer(mDeviceInfo->mDevice, framebuffer, VK_NULL_HANDLE);
 
 	// destroy render pass
-	vkDestroyRenderPass(mDeviceInfo->device, mRenderPass, VK_NULL_HANDLE);
+	vkDestroyRenderPass(mDeviceInfo->mDevice, mRenderPass, VK_NULL_HANDLE);
 	mRenderPass = VK_NULL_HANDLE;
 
 	// destroy image depth stencil
-	vmaDestroyImage(mDeviceInfo->allocator, mImageDepthStencil, mImageDepthStencilAllocation);
+	vmaDestroyImage(mDeviceInfo->mAllocator, mImageDepthStencil, mImageDepthStencilAllocation);
 	mImageDepthStencil = VK_NULL_HANDLE;
 	mImageDepthStencilAllocation = VK_NULL_HANDLE;
 
 	// destroy image views
-	vkDestroyImageView(mDeviceInfo->device, mImageViewDepthStencil, VK_NULL_HANDLE);
+	vkDestroyImageView(mDeviceInfo->mDevice, mImageViewDepthStencil, VK_NULL_HANDLE);
 	mImageViewDepthStencil = VK_NULL_HANDLE;
 
 	// destroy image views
 	for (const auto& imageViewColor : mImageViewColors)
-		vkDestroyImageView(mDeviceInfo->device, imageViewColor, VK_NULL_HANDLE);
+		vkDestroyImageView(mDeviceInfo->mDevice, imageViewColor, VK_NULL_HANDLE);
 
 	// destroy swapchain
-	vkDestroySwapchainKHR(mDeviceInfo->device, mSwapchain, VK_NULL_HANDLE);
+	vkDestroySwapchainKHR(mDeviceInfo->mDevice, mSwapchain, VK_NULL_HANDLE);
 	mSwapchain = VK_NULL_HANDLE;
 }
 
@@ -925,7 +925,7 @@ void VulkanSwapchainInfo::ReInitialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKH
 // BeginFrame
 VkFramebuffer VulkanSwapchainInfo::BeginFrame(VkSemaphore signalSemaphore)
 {
-	VK_CHECK(vkAcquireNextImageKHR(mDeviceInfo->device, mSwapchain, UINT64_MAX, signalSemaphore, VK_NULL_HANDLE, &mCurrentFramebufferIndex));
+	VK_CHECK(vkAcquireNextImageKHR(mDeviceInfo->mDevice, mSwapchain, UINT64_MAX, signalSemaphore, VK_NULL_HANDLE, &mCurrentFramebufferIndex));
 	return mFramebuffers[mCurrentFramebufferIndex];
 }
 
@@ -941,8 +941,8 @@ void VulkanSwapchainInfo::EndFrame(VkSemaphore waitSemaphore)
 	presentInfo.pSwapchains = &mSwapchain;
 	presentInfo.pImageIndices = &mCurrentFramebufferIndex;
 	presentInfo.pResults = nullptr; // Optional
-	VK_CHECK(vkQueuePresentKHR(mDeviceInfo->queuePresent, &presentInfo));
-	VK_CHECK(vkQueueWaitIdle(mDeviceInfo->queuePresent));
+	VK_CHECK(vkQueuePresentKHR(mDeviceInfo->mQueuePresent, &presentInfo));
+	VK_CHECK(vkQueueWaitIdle(mDeviceInfo->mQueuePresent));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -991,9 +991,9 @@ void VulkanPipelineInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkRenderPass r
 	InitPipelineLayoutDescriptions();
 
 	// create shaders
-	mShaderModuleVS = CreateShaderModuleFromFile(mDeviceInfo->device, pathVS);
+	mShaderModuleVS = CreateShaderModuleFromFile(mDeviceInfo->mDevice, pathVS);
 	assert(mShaderModuleVS);
-	mShaderModuleFS = CreateShaderModuleFromFile(mDeviceInfo->device, pathFS);
+	mShaderModuleFS = CreateShaderModuleFromFile(mDeviceInfo->mDevice, pathFS);
 	assert(mShaderModuleFS);
 
 	// VkPipelineShaderStageCreateInfo - shaderStages
@@ -1187,7 +1187,7 @@ void VulkanPipelineInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkRenderPass r
 	descriptorSetLayoutCreateInfo.pBindings = mDescriptorSetLayoutBindings.data();
 
 	// vkCreatePipelineLayout
-	VK_CHECK(vkCreateDescriptorSetLayout(mDeviceInfo->device, &descriptorSetLayoutCreateInfo, VK_NULL_HANDLE, &mDescriptorSetLayout));
+	VK_CHECK(vkCreateDescriptorSetLayout(mDeviceInfo->mDevice, &descriptorSetLayoutCreateInfo, VK_NULL_HANDLE, &mDescriptorSetLayout));
 
 	//////////////////////////////////////////////////////////////////////////
 
@@ -1202,7 +1202,7 @@ void VulkanPipelineInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkRenderPass r
 	pipelineLayoutInfo.pPushConstantRanges = VK_NULL_HANDLE; // Optional
 
 	// vkCreatePipelineLayout;
-	VK_CHECK(vkCreatePipelineLayout(mDeviceInfo->device, &pipelineLayoutInfo, VK_NULL_HANDLE, &mPipelineLayout));
+	VK_CHECK(vkCreatePipelineLayout(mDeviceInfo->mDevice, &pipelineLayoutInfo, VK_NULL_HANDLE, &mPipelineLayout));
 
 	//////////////////////////////////////////////////////////////////////////
 
@@ -1229,7 +1229,7 @@ void VulkanPipelineInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkRenderPass r
 	createInfo.basePipelineIndex = 0;
 
 	// vkCreateGraphicsPipelines
-	VK_CHECK(vkCreateGraphicsPipelines(mDeviceInfo->device, VK_NULL_HANDLE, 1, &createInfo, VK_NULL_HANDLE, &mPipeline));
+	VK_CHECK(vkCreateGraphicsPipelines(mDeviceInfo->mDevice, VK_NULL_HANDLE, 1, &createInfo, VK_NULL_HANDLE, &mPipeline));
 
 	// get descriptor type counts
 	std::map<VkDescriptorType, uint32_t> descriptorTypeCounts{};
@@ -1251,7 +1251,7 @@ void VulkanPipelineInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkRenderPass r
 	descriptorPoolCreateInfo.pPoolSizes = descriptorPoolSizes.data();
 
 	// vkCreateDescriptorPool
-	vkCreateDescriptorPool(mDeviceInfo->device, &descriptorPoolCreateInfo, VK_NULL_HANDLE, &mDescriptorPool);
+	vkCreateDescriptorPool(mDeviceInfo->mDevice, &descriptorPoolCreateInfo, VK_NULL_HANDLE, &mDescriptorPool);
 
 	// VkDescriptorSetAllocateInfo
 	VkDescriptorSetAllocateInfo descriptorSetAllocateInfo{};
@@ -1262,23 +1262,23 @@ void VulkanPipelineInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkRenderPass r
 	descriptorSetAllocateInfo.pSetLayouts = &mDescriptorSetLayout;
 
 	// vkAllocateDescriptorSets
-	VK_CHECK(vkAllocateDescriptorSets(mDeviceInfo->device, &descriptorSetAllocateInfo, &mDescriptorSet));
+	VK_CHECK(vkAllocateDescriptorSets(mDeviceInfo->mDevice, &descriptorSetAllocateInfo, &mDescriptorSet));
 }
 
 // DeInitialize
 void VulkanPipelineInfo::DeInitialize() 
 {
-	vkDestroyDescriptorPool(mDeviceInfo->device, mDescriptorPool, VK_NULL_HANDLE);
+	vkDestroyDescriptorPool(mDeviceInfo->mDevice, mDescriptorPool, VK_NULL_HANDLE);
 	mDescriptorPool = VK_NULL_HANDLE;
-	vkDestroyPipeline(mDeviceInfo->device, mPipeline, VK_NULL_HANDLE);
+	vkDestroyPipeline(mDeviceInfo->mDevice, mPipeline, VK_NULL_HANDLE);
 	mPipeline = VK_NULL_HANDLE;
-	vkDestroyPipelineLayout(mDeviceInfo->device, mPipelineLayout, VK_NULL_HANDLE);
+	vkDestroyPipelineLayout(mDeviceInfo->mDevice, mPipelineLayout, VK_NULL_HANDLE);
 	mPipelineLayout = VK_NULL_HANDLE;
-	vkDestroyDescriptorSetLayout(mDeviceInfo->device, mDescriptorSetLayout, VK_NULL_HANDLE);
+	vkDestroyDescriptorSetLayout(mDeviceInfo->mDevice, mDescriptorSetLayout, VK_NULL_HANDLE);
 	mDescriptorSetLayout = VK_NULL_HANDLE;
-	vkDestroyShaderModule(mDeviceInfo->device, mShaderModuleFS, VK_NULL_HANDLE);
+	vkDestroyShaderModule(mDeviceInfo->mDevice, mShaderModuleFS, VK_NULL_HANDLE);
 	mShaderModuleFS = VK_NULL_HANDLE;
-	vkDestroyShaderModule(mDeviceInfo->device, mShaderModuleVS, VK_NULL_HANDLE);
+	vkDestroyShaderModule(mDeviceInfo->mDevice, mShaderModuleVS, VK_NULL_HANDLE);
 	mShaderModuleVS = VK_NULL_HANDLE;
 }
 
@@ -1305,7 +1305,7 @@ void VulkanPipelineInfo::BindImageView(uint32_t binding, VkImageView imageView, 
 	writeDescriptorSet.pTexelBufferView = VK_NULL_HANDLE;
 
 	// vkUpdateDescriptorSets
-	vkUpdateDescriptorSets(mDeviceInfo->device, 1, &writeDescriptorSet, 0, VK_NULL_HANDLE);
+	vkUpdateDescriptorSets(mDeviceInfo->mDevice, 1, &writeDescriptorSet, 0, VK_NULL_HANDLE);
 }
 
 // BindUnifromBuffer
@@ -1332,7 +1332,7 @@ void VulkanPipelineInfo::BindUnifromBuffer(uint32_t binding, VkBuffer buffer)
 	writeDescriptorSet.pTexelBufferView = VK_NULL_HANDLE;
 
 	// vkUpdateDescriptorSets
-	vkUpdateDescriptorSets(mDeviceInfo->device, 1, &writeDescriptorSet, 0, VK_NULL_HANDLE);
+	vkUpdateDescriptorSets(mDeviceInfo->mDevice, 1, &writeDescriptorSet, 0, VK_NULL_HANDLE);
 }
 
 //////////////////////////////////////////////////////////////////////////

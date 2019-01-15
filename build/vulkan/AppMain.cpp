@@ -170,7 +170,7 @@ bool CAppMain::loadTextureFromFile(const char * fileName)
 	assert(mModelImageMemory);
 
 	// create image view
-	mModelImageView = CreateImageView(mDeviceInfo.mDevice, mModelImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+	mModelImageView = mDeviceInfo.CreateImageView(mModelImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
 	assert(mModelImageView);
 
 	// free image data
@@ -220,16 +220,16 @@ void CAppMain::Init(const HWND hWnd)
 	assert(mPipelineInfo.mPipelineLayout);
 	assert(mPipelineInfo.mPipeline);
 
-	mCommandBuffer = AllocateCommandBuffer(mDeviceInfo.mDevice, mDeviceInfo.mCommandPool);
+	mCommandBuffer = mDeviceInfo.AllocateCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 	assert(mCommandBuffer);
 
-	mImageAvailableSemaphore = CreateSemaphore(mDeviceInfo.mDevice);
+	mImageAvailableSemaphore = mDeviceInfo.CreateSemaphore();
 	assert(mImageAvailableSemaphore);
 
-	mRenderFinishedSemaphore = CreateSemaphore(mDeviceInfo.mDevice);
+	mRenderFinishedSemaphore = mDeviceInfo.CreateSemaphore();
 	assert(mRenderFinishedSemaphore);
 
-	mSampler = CreateSampler(mDeviceInfo.mDevice);
+	mSampler = mDeviceInfo.CreateSampler(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT);
 	assert(mSampler);
 
 	loadTextureFromFile("./textures/texture.png");

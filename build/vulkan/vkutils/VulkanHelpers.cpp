@@ -728,6 +728,116 @@ void VulkanDeviceInfo::WriteImage(const void* data, uint32_t width, uint32_t hei
 	}
 }
 
+// CreateSemaphore
+VkSemaphore VulkanDeviceInfo::CreateSemaphore()
+{
+	// VkSemaphoreCreateInfo
+	VkSemaphoreCreateInfo semaphoreCreateInfo{};
+	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	semaphoreCreateInfo.pNext = VK_NULL_HANDLE;
+	semaphoreCreateInfo.flags = 0;
+
+	// vkCreateSemaphore
+	VkSemaphore semaphore = VK_NULL_HANDLE;
+	VK_CHECK(vkCreateSemaphore(mDevice, &semaphoreCreateInfo, VK_NULL_HANDLE, &semaphore));
+	return semaphore;
+}
+
+// CreateSampler
+VkSampler VulkanDeviceInfo::CreateSampler(VkFilter filter, VkSamplerAddressMode samplerAddressMode)
+{
+	// VkSamplerCreateInfo
+	VkSamplerCreateInfo samplerCreateInfo{};
+	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerCreateInfo.pNext = VK_NULL_HANDLE;
+	samplerCreateInfo.flags = 0;
+	samplerCreateInfo.magFilter = filter;
+	samplerCreateInfo.minFilter = filter;
+	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerCreateInfo.addressModeU = samplerAddressMode;
+	samplerCreateInfo.addressModeV = samplerAddressMode;
+	samplerCreateInfo.addressModeW = samplerAddressMode;
+	samplerCreateInfo.mipLodBias = 0.0f;
+	samplerCreateInfo.anisotropyEnable = VK_FALSE;
+	samplerCreateInfo.maxAnisotropy = 16;
+	samplerCreateInfo.compareEnable = VK_FALSE;
+	samplerCreateInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+	samplerCreateInfo.minLod = 0.0f;
+	samplerCreateInfo.maxLod = FLT_MAX;
+	samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
+
+	// vkCreateSampler
+	VkSampler sampler;
+	VK_CHECK(vkCreateSampler(mDevice, &samplerCreateInfo, VK_NULL_HANDLE, &sampler));
+	return sampler;
+}
+
+// CreateImageView
+VkImageView VulkanDeviceInfo::CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectMask)
+{
+	// VkImageViewCreateInfo
+	VkImageViewCreateInfo imageViewCreateInfo{};
+	imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	imageViewCreateInfo.pNext = VK_NULL_HANDLE;
+	imageViewCreateInfo.flags = 0;
+	imageViewCreateInfo.image = image;
+	imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	imageViewCreateInfo.format = format;
+	imageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+	imageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+	imageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+	imageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;;
+	imageViewCreateInfo.subresourceRange.aspectMask = aspectMask;
+	imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+	imageViewCreateInfo.subresourceRange.levelCount = 1;
+	imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+	imageViewCreateInfo.subresourceRange.layerCount = 1;
+
+	// vkCreateImage
+	VkImageView imageView = VK_NULL_HANDLE;
+	VK_CHECK(vkCreateImageView(mDevice, &imageViewCreateInfo, VK_NULL_HANDLE, &imageView));
+	return imageView;
+}
+
+// AllocateCommandBuffer
+VkCommandBuffer VulkanDeviceInfo::AllocateCommandBuffer(VkCommandBufferLevel commandBufferLevel)
+{
+	// VkCommandBufferAllocateInfo
+	VkCommandBufferAllocateInfo commandBufferAllocateInfo{};
+	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	commandBufferAllocateInfo.pNext = VK_NULL_HANDLE;
+	commandBufferAllocateInfo.commandPool = mCommandPool;
+	commandBufferAllocateInfo.level = commandBufferLevel;
+	commandBufferAllocateInfo.commandBufferCount = 1;
+
+	// vkAllocateCommandBuffers
+	VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+	VK_CHECK(vkAllocateCommandBuffers(mDevice, &commandBufferAllocateInfo, &commandBuffer));
+	return commandBuffer;
+}
+
+// CreateFramebuffer
+VkFramebuffer VulkanDeviceInfo::CreateFramebuffer(VkRenderPass renderPass, std::vector<VkImageView>& imageViews, uint32_t width, uint32_t height)
+{
+	// VkFramebufferCreateInfo 
+	VkFramebufferCreateInfo framebufferCreateInfo{};
+	framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	framebufferCreateInfo.pNext = VK_NULL_HANDLE;
+	framebufferCreateInfo.flags = 0;
+	framebufferCreateInfo.renderPass = renderPass;
+	framebufferCreateInfo.attachmentCount = (uint32_t)imageViews.size();
+	framebufferCreateInfo.pAttachments = imageViews.data();
+	framebufferCreateInfo.width = width;
+	framebufferCreateInfo.height = height;
+	framebufferCreateInfo.layers = 1;
+
+	// vkCreateFramebuffer
+	VkFramebuffer framebuffer = VK_NULL_HANDLE;
+	VK_CHECK(vkCreateFramebuffer(mDevice, &framebufferCreateInfo, VK_NULL_HANDLE, &framebuffer));
+	return framebuffer;
+}
+
 //////////////////////////////////////////////////////////////////////////
 // VulkanSwapchainInfo
 //////////////////////////////////////////////////////////////////////////
@@ -788,7 +898,7 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 	mImageViewColors.reserve(imageColorsCount);
 	for (const auto& imageColor : mImageColors) {
 		// create image view
-		VkImageView imageView = CreateImageView(mDeviceInfo->mDevice, imageColor, mSurfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT);
+		VkImageView imageView = mDeviceInfo->CreateImageView(imageColor, mSurfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT);
 		assert(imageView);
 
 		// add image view
@@ -808,7 +918,7 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 	assert(mImageDepthStencilAllocation);
 
 	// VkImageView
-	mImageViewDepthStencil = CreateImageView(mDeviceInfo->mDevice, mImageDepthStencil, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+	mImageViewDepthStencil = mDeviceInfo->CreateImageView(mImageDepthStencil, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 	assert(mImageViewDepthStencil);
 
 	//////////////////////////////////////////////////////////////////////////
@@ -878,7 +988,7 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 	for (const auto& imageViewColor : mImageViewColors) {
 		// create framebuffer
 		std::vector<VkImageView> imageViews = { imageViewColor, mImageViewDepthStencil };
-		VkFramebuffer framebuffer = CreateFramebuffer(mDeviceInfo->mDevice, mRenderPass, imageViews, mViewportWidth, mViewportWidth);
+		VkFramebuffer framebuffer = mDeviceInfo->CreateFramebuffer(mRenderPass, imageViews, mViewportWidth, mViewportWidth);
 		assert(framebuffer);
 
 		// add framebuffer
@@ -1369,100 +1479,6 @@ VkSurfaceKHR CreateSurface(VkInstance instance, HWND hWnd)
 	return surface;
 }
 
-// CreateImageView
-VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectMask)
-{
-	// VkImageViewCreateInfo
-	VkImageViewCreateInfo imageViewCreateInfo{};
-	imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	imageViewCreateInfo.pNext = VK_NULL_HANDLE;
-	imageViewCreateInfo.flags = 0;
-	imageViewCreateInfo.image = image;
-	imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	imageViewCreateInfo.format = format;
-	imageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-	imageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-	imageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-	imageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;;
-	imageViewCreateInfo.subresourceRange.aspectMask = aspectMask;
-	imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
-	imageViewCreateInfo.subresourceRange.levelCount = 1;
-	imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
-	imageViewCreateInfo.subresourceRange.layerCount = 1;
-
-	// vkCreateImage
-	VkImageView imageView = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateImageView(device, &imageViewCreateInfo, VK_NULL_HANDLE, &imageView));
-	return imageView;
-}
-
-// CreateFramebuffer
-VkFramebuffer CreateFramebuffer(VkDevice device, VkRenderPass renderPass, std::vector<VkImageView>& imageViews, uint32_t width, uint32_t height)
-{
-	// VkFramebufferCreateInfo 
-	VkFramebufferCreateInfo framebufferCreateInfo{};
-	framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	framebufferCreateInfo.pNext = VK_NULL_HANDLE;
-	framebufferCreateInfo.flags = 0;
-	framebufferCreateInfo.renderPass = renderPass;
-	framebufferCreateInfo.attachmentCount = (uint32_t)imageViews.size();
-	framebufferCreateInfo.pAttachments = imageViews.data();
-	framebufferCreateInfo.width = width;
-	framebufferCreateInfo.height = height;
-	framebufferCreateInfo.layers = 1;
-
-	// vkCreateFramebuffer
-	VkFramebuffer framebuffer = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateFramebuffer(device, &framebufferCreateInfo, VK_NULL_HANDLE, &framebuffer));
-	return framebuffer;
-}
-
-// CreateBuffer
-VkBuffer CreateBuffer(VkDevice device, VkDeviceSize size, VkBufferUsageFlags usage)
-{
-	// VkBufferCreateInfo
-	VkBufferCreateInfo bufferCreateInfo{};
-	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferCreateInfo.size = size;
-	bufferCreateInfo.usage = usage;
-	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-	// vkCreateBuffer
-	VkBuffer buffer = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateBuffer(device, &bufferCreateInfo, nullptr, &buffer));
-	return buffer;
-}
-
-// CreateSampler
-VkSampler CreateSampler(VkDevice device)
-{
-	// VkSamplerCreateInfo
-	VkSamplerCreateInfo samplerCreateInfo{};
-	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerCreateInfo.pNext = VK_NULL_HANDLE;
-	samplerCreateInfo.flags = 0;
-	samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
-	samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
-	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.mipLodBias = 0.0f;
-	samplerCreateInfo.anisotropyEnable = VK_TRUE;
-	samplerCreateInfo.maxAnisotropy = 16;
-	samplerCreateInfo.compareEnable = VK_FALSE;
-	samplerCreateInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-	samplerCreateInfo.minLod = 0.0f;
-	samplerCreateInfo.maxLod = FLT_MAX;
-	samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-	samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
-
-	// vkCreateSampler
-	VkSampler sampler;
-	VK_CHECK(vkCreateSampler(device, &samplerCreateInfo, VK_NULL_HANDLE, &sampler));
-	return sampler;
-}
-
 // CreateShaderModuleFromFile
 VkShaderModule CreateShaderModuleFromFile(VkDevice device, const char* fileName)
 {
@@ -1490,38 +1506,6 @@ VkShaderModule CreateShaderModuleFromFile(VkDevice device, const char* fileName)
 	VkShaderModule shaderModule = VK_NULL_HANDLE;
 	VK_CHECK(vkCreateShaderModule(device, &shaderModuleCreateInfo, VK_NULL_HANDLE, &shaderModule));
 	return shaderModule;
-}
-
-// AllocateCommandBuffer
-VkCommandBuffer AllocateCommandBuffer(VkDevice device, VkCommandPool commandPool, VkCommandBufferLevel commandBufferLevel)
-{
-	// VkCommandBufferAllocateInfo
-	VkCommandBufferAllocateInfo commandBufferAllocateInfo{};
-	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	commandBufferAllocateInfo.pNext = VK_NULL_HANDLE;
-	commandBufferAllocateInfo.commandPool = commandPool;
-	commandBufferAllocateInfo.level = commandBufferLevel;
-	commandBufferAllocateInfo.commandBufferCount = 1;
-
-	// vkAllocateCommandBuffers
-	VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-	VK_CHECK(vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &commandBuffer));
-	return commandBuffer;
-}
-
-// CreateSemaphore
-VkSemaphore CreateSemaphore(VkDevice device)
-{
-	// VkSemaphoreCreateInfo
-	VkSemaphoreCreateInfo semaphoreCreateInfo{};
-	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-	semaphoreCreateInfo.pNext = VK_NULL_HANDLE;
-	semaphoreCreateInfo.flags = 0;
-
-	// vkCreateSemaphore
-	VkSemaphore semaphore = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, VK_NULL_HANDLE, &semaphore));
-	return semaphore;
 }
 
 // QueueSubmit

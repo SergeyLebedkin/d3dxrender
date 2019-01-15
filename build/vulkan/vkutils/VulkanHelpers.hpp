@@ -54,7 +54,7 @@ public:
 };
 
 // VulkanDeviceInfo
-struct VulkanDeviceInfo 
+struct VulkanDeviceInfo
 {
 	// base handles
 	VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
@@ -116,6 +116,13 @@ struct VulkanDeviceInfo
 	void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImage& image, VmaAllocation& allocation);
 	void CreateImage(const void* data, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImage& image, VmaAllocation& allocation);
 	void WriteImage(const void* data, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImage& image, VmaAllocation& allocation);
+
+	// misk functions
+	VkSemaphore CreateSemaphore();
+	VkSampler CreateSampler(VkFilter filter, VkSamplerAddressMode samplerAddressMode);
+	VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectMask);
+	VkCommandBuffer AllocateCommandBuffer(VkCommandBufferLevel commandBufferLevel);
+	VkFramebuffer CreateFramebuffer(VkRenderPass renderPass, std::vector<VkImageView>& imageViews, uint32_t width, uint32_t height);
 };
 
 // VulkanSwapchainInfo
@@ -204,26 +211,8 @@ VkDeviceQueueCreateInfo InitDeviceQueueCreateInfo(uint32_t queueIndex);
 // CreateSurface
 VkSurfaceKHR CreateSurface(VkInstance instance, HWND hWnd);
 
-// CreateImageView
-VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectMask);
-
-// CreateFramebuffer
-VkFramebuffer CreateFramebuffer(VkDevice device, VkRenderPass renderPass, std::vector<VkImageView>& imageViews, uint32_t width, uint32_t height);
-
-// CreateBuffer
-VkBuffer CreateBuffer(VkDevice device, VkDeviceSize size, VkBufferUsageFlags usage);
-
-// CreateSampler
-VkSampler CreateSampler(VkDevice device);
-
 // CreateShaderModuleFromFile
 VkShaderModule CreateShaderModuleFromFile(VkDevice device, const char* fileName);
-
-// AllocateCommandBuffer
-VkCommandBuffer AllocateCommandBuffer(VkDevice device, VkCommandPool commandPool, VkCommandBufferLevel commandBufferLevel = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-
-// CreateSemaphore
-VkSemaphore CreateSemaphore(VkDevice device);
 
 // QueueSubmit
 void QueueSubmit(VkQueue queue, VkCommandBuffer commandBuffer, VkSemaphore waitSemaphore, VkSemaphore signalSemaphore);

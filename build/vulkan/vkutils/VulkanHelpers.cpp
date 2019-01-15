@@ -481,7 +481,7 @@ void VulkanDeviceInfo::WriteBuffer(const void* data, VkDeviceSize size, VkBuffer
 		void* mappedData = nullptr;
 		vmaMapMemory(mAllocator, allocation, &mappedData);
 		assert(mappedData);
-		memcpy(mappedData, &data, size);
+		memcpy(mappedData, &data, (size_t)size);
 		vmaUnmapMemory(mAllocator, allocation);
 	} 
 	else // if target device memory is NOT host visible, then we need use staging buffer
@@ -507,7 +507,7 @@ void VulkanDeviceInfo::WriteBuffer(const void* data, VkDeviceSize size, VkBuffer
 		void* mappedData = nullptr;
 		vmaMapMemory(mAllocator, stagingBufferAlloc, &mappedData);
 		assert(mappedData);
-		memcpy(mappedData, data, size);
+		memcpy(mappedData, data, (size_t)size);
 		vmaUnmapMemory(mAllocator, stagingBufferAlloc);
 
 		// copy buffers

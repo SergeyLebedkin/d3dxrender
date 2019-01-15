@@ -203,56 +203,22 @@ void CAppMain::Init(const HWND hWnd)
 	VkPhysicalDeviceFeatures physicalDeviceFeatures{};
 	physicalDeviceFeatures.samplerAnisotropy = VK_TRUE;
 
-	// VkVertexInputBindingDescription - vertexBindingDescriptions
-	std::vector<VkVertexInputBindingDescription> vertexBindingDescriptions{
-		{ 0, sizeof(CUSTOMVERTEX), VK_VERTEX_INPUT_RATE_VERTEX },
-		//{ 1, sizeof(float) * 4, VK_VERTEX_INPUT_RATE_VERTEX },
-		//{ 2, sizeof(float) * 2, VK_VERTEX_INPUT_RATE_VERTEX },
-	};
-
-	// VkVertexInputAttributeDescription - vertexAttributeDescriptions
-	std::vector<VkVertexInputAttributeDescription> vertexAttributeDescriptions = {
-		{ 0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0 }, // position
-		{ 1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 16 }, // normal
-		{ 2, 0, VK_FORMAT_R32G32_SFLOAT, 32 },    // texture coordinates
-	};
-
-	// VkPipelineVertexInputStateCreateInfo
-	VkPipelineVertexInputStateCreateInfo vertexInputState = InitPipelineVertexInputStateCreateInfo(vertexBindingDescriptions, vertexAttributeDescriptions);
-
 	mInstanceInfo.Initialize("Vulkan app", VK_MAKE_VERSION(1, 0, 1), "Vulkan Engine", VK_MAKE_VERSION(1, 0, 1), enabledInstanceLayerNames, enabledInstanceExtensionNames, VK_API_VERSION_1_1);
-	assert(mInstanceInfo.instance);
+	assert(mInstanceInfo.mInstance);
 
-	mSurface = CreateSurface(mInstanceInfo.instance, hWnd);
+	mSurface = CreateSurface(mInstanceInfo.mInstance, hWnd);
 	assert(mSurface);
 
-	VkPhysicalDevice physicalDevice = mInstanceInfo.FindPhysicalDevice(VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU);
-	assert(physicalDevice);
-
-	mDeviceInfo.Initialize(physicalDevice, mSurface, physicalDeviceFeatures, enabledDeviceExtensionNames);
+	mDeviceInfo.Initialize(mInstanceInfo.mPhysicalDeviceGPU, mSurface, physicalDeviceFeatures, enabledDeviceExtensionNames);
 	assert(mDeviceInfo.device);
 
-	mRenderPass = CreateRenderPass(mDeviceInfo.device);
-	assert(mRenderPass);
+	mSwapchainInfo.Initialize(mDeviceInfo, mSurface);
+	assert(mSwapchainInfo.mSwapchain);
 
-	mSwapchainInfo.Initialize(mDeviceInfo, mSurface, mRenderPass);
-	assert(mSwapchainInfo.swapchain);
-
-	mShaderModuleVS = CreateShaderModuleFromFile(mDeviceInfo.device, "shaders/base.vert.spv");
-	assert(mShaderModuleVS);
-
-	mShaderModuleFS = CreateShaderModuleFromFile(mDeviceInfo.device, "shaders/base.frag.spv");
-	assert(mShaderModuleFS);
-
-	mDescriptorSetLayout = CreateDescriptorSetLayout(mDeviceInfo.device);
-	assert(mDescriptorSetLayout);
-
-	mPipelineLayout = CreatePipelineLayout(mDeviceInfo.device, mDescriptorSetLayout);
-	assert(mPipelineLayout);
-
-	mGraphicsPipeline = CreateGraphicsPipeline(mDeviceInfo.device, vertexInputState, mShaderModuleVS, mShaderModuleFS, mPipelineLayout,
-		mRenderPass, mSwapchainInfo.viewportWidth, mSwapchainInfo.viewportWidth);
-	assert(mGraphicsPipeline);
+	mPipelineInfo.Initialize(mDeviceInfo, mSwapchainInfo.mRenderPass, "shaders/base.vert.spv", "shaders/base.frag.spv");
+	assert(mPipelineInfo.mDescriptorSetLayout);
+	assert(mPipelineInfo.mPipelineLayout);
+	assert(mPipelineInfo.mPipeline);
 
 	mCommandBuffer = AllocateCommandBuffer(mDeviceInfo.device, mDeviceInfo.commandPool);
 	assert(mCommandBuffer);
@@ -266,27 +232,21 @@ void CAppMain::Init(const HWND hWnd)
 	mSampler = CreateSampler(mDeviceInfo.device);
 	assert(mSampler);
 
+	loadTextureFromFile("./textures/texture.png");
+
 	//loadModelObjFromFile("./models/tea.obj", "./models");
 	mDeviceInfo.CreateBuffer(vertices, sizeof(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mModelVertexBufferPos, mModelVertexMemoryPos);
 	mDeviceInfo.CreateBuffer(indexes, sizeof(indexes), VK_BUFFER_USAGE_INDEX_BUFFER_BIT, mModelIndexBuffer, mModelIndexMemory);
+	mDeviceInfo.CreateBuffer(&mWVP, sizeof(mWVP), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, mModelUniformMVP, mModelUniformMemoryMVP);
 
-	loadTextureFromFile("./textures/texture.png");
-
-	mDeviceInfo.CreateBuffer(sizeof(mWVP), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, mModelUniformMVP, mModelUniformMemoryMVP);
-
-	mDescriptorPool = CreateDescriptorPool(mDeviceInfo.device);
-	assert(mDescriptorPool);
-
- 	mDescriptorSet = AllocateDescriptorSet(mDeviceInfo.device, mDescriptorPool, mDescriptorSetLayout);
- 	assert(mDescriptorSet);
- 	UpdateDescriptorSets(mDeviceInfo.device, mDescriptorSet, mModelImageView, mSampler, mModelUniformMVP);
+	// bind data
+	mPipelineInfo.BindImageView(0, mModelImageView, mSampler);
+	mPipelineInfo.BindUnifromBuffer(1, mModelUniformMVP);
 }
 
 // Created SL-160225
 void CAppMain::Destroy()
 {
-	vkDestroyDescriptorPool(mDeviceInfo.device, mDescriptorPool, VK_NULL_HANDLE);
-
 	vmaDestroyBuffer(mDeviceInfo.allocator, mModelUniformMVP, mModelUniformMemoryMVP);
 	vkDestroyImageView(mDeviceInfo.device, mModelImageView, VK_NULL_HANDLE);
 	vmaDestroyImage(mDeviceInfo.allocator, mModelImage, mModelImageMemory);
@@ -298,14 +258,9 @@ void CAppMain::Destroy()
 	vkDestroySampler(mDeviceInfo.device, mSampler, VK_NULL_HANDLE);
 	vkDestroySemaphore(mDeviceInfo.device, mRenderFinishedSemaphore, VK_NULL_HANDLE);
 	vkDestroySemaphore(mDeviceInfo.device, mImageAvailableSemaphore, VK_NULL_HANDLE);
-	vkDestroyPipeline(mDeviceInfo.device, mGraphicsPipeline, VK_NULL_HANDLE);
-	vkDestroyPipelineLayout(mDeviceInfo.device, mPipelineLayout, VK_NULL_HANDLE);
-	vkDestroyDescriptorSetLayout(mDeviceInfo.device, mDescriptorSetLayout, VK_NULL_HANDLE);
-	vkDestroyShaderModule(mDeviceInfo.device, mShaderModuleFS, VK_NULL_HANDLE);
-	vkDestroyShaderModule(mDeviceInfo.device, mShaderModuleVS, VK_NULL_HANDLE);
-	vkDestroyRenderPass(mDeviceInfo.device, mRenderPass, VK_NULL_HANDLE);
+	mPipelineInfo.DeInitialize();
 	mSwapchainInfo.DeInitialize();
-	vkDestroySurfaceKHR(mInstanceInfo.instance, mSurface, VK_NULL_HANDLE);
+	vkDestroySurfaceKHR(mInstanceInfo.mInstance, mSurface, VK_NULL_HANDLE);
 	mDeviceInfo.DeInitialize();
 	mInstanceInfo.DeInitialize();
 }
@@ -318,15 +273,15 @@ void CAppMain::Render()
 
 	// VkExtent2D
 	VkExtent2D extend2d;
-	extend2d.height = mSwapchainInfo.viewportHeight;
-	extend2d.width = mSwapchainInfo.viewportWidth;
+	extend2d.height = mSwapchainInfo.mViewportHeight;
+	extend2d.width = mSwapchainInfo.mViewportWidth;
 
 	// update MVP uniform buffer
 	mDeviceInfo.WriteBuffer(&mWVP, sizeof(mWVP), mModelUniformMVP, mModelUniformMemoryMVP);
 
 	// refill command buffer (RENDER CURRENT FRAME TO CURRENT FRAME BUFFER)
-	FillCommandBuffer(mCommandBuffer, mGraphicsPipeline, mPipelineLayout, mDescriptorSet,
-		mRenderPass, framebuffer, extend2d, 
+	FillCommandBuffer(mCommandBuffer, mPipelineInfo.mPipeline, mPipelineInfo.mPipelineLayout, mPipelineInfo.mDescriptorSet,
+		mSwapchainInfo.mRenderPass, framebuffer, extend2d, 
 		mModelVertexBufferPos, mModelVertexBufferNorm, mModelVertexBufferTexCoord, mModelIndexBuffer, mVertexCount);
 
 	// submit render command buffer
@@ -364,7 +319,7 @@ void CAppMain::Update(float deltaTime)
 	);
 
 	// mat projection
-	DirectX::XMMATRIX matProj = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(45.0f), (FLOAT)mSwapchainInfo.viewportWidth / mSwapchainInfo.viewportHeight, 1.0f, 1000.0f);
+	DirectX::XMMATRIX matProj = DirectX::XMMatrixPerspectiveFovRH(DirectX::XMConvertToRadians(45.0f), (FLOAT)mSwapchainInfo.mViewportWidth / mSwapchainInfo.mViewportHeight, 1.0f, 1000.0f);
 
 	// WorldViewProjection
 	mWVP = matWorld * matView * matProj;
@@ -374,5 +329,5 @@ void CAppMain::Update(float deltaTime)
 void CAppMain::SetViewportSize(WORD viewportWidth, WORD viewportHeight)
 {
 	VK_CHECK(vkQueueWaitIdle(mDeviceInfo.queuePresent));
-	mSwapchainInfo.ReInitialize(mDeviceInfo, mSurface, mRenderPass);
+	mSwapchainInfo.ReInitialize(mDeviceInfo, mSurface);
 };

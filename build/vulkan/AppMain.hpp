@@ -1,8 +1,6 @@
 #pragma once
 
 #include <DirectXMath.h>
-#include <windows.h>
-#include <vector>
 #include "vkutils/VulkanHelpers.hpp"
 
 // created SL-160225
@@ -13,17 +11,10 @@ private:
 	VulkanInstanceInfo  mInstanceInfo;
 	VulkanDeviceInfo    mDeviceInfo;
 	VulkanSwapchainInfo mSwapchainInfo;
+	VulkanPipelineInfo  mPipelineInfo;
 
 	// vulkan handlers
 	VkSurfaceKHR          mSurface = VK_NULL_HANDLE;
-	VkRenderPass          mRenderPass = VK_NULL_HANDLE;
-	VkShaderModule        mShaderModuleVS = VK_NULL_HANDLE;
-	VkShaderModule        mShaderModuleFS = VK_NULL_HANDLE;
-	VkDescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
-	VkPipelineLayout      mPipelineLayout = VK_NULL_HANDLE;
-	VkDescriptorPool      mDescriptorPool = VK_NULL_HANDLE;
-	VkDescriptorSet       mDescriptorSet = VK_NULL_HANDLE;
-	VkPipeline            mGraphicsPipeline = VK_NULL_HANDLE;
 	VkCommandBuffer       mCommandBuffer = VK_NULL_HANDLE;
 	VkSemaphore           mImageAvailableSemaphore = VK_NULL_HANDLE;
 	VkSemaphore           mRenderFinishedSemaphore = VK_NULL_HANDLE;

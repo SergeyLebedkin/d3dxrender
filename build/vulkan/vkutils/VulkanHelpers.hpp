@@ -32,12 +32,13 @@ private:
 #endif
 public:
 	// base handles
-	VkInstance instance = VK_NULL_HANDLE;
+	VkInstance       mInstance = VK_NULL_HANDLE;
+	VkPhysicalDevice mPhysicalDeviceGPU = VK_NULL_HANDLE;
 
 	// properties
-	std::vector<VkPhysicalDevice> physicalDevices{};
-	std::vector<VkLayerProperties> layerProperties{};
-	std::vector<VkExtensionProperties> extensionProperties{};
+	std::vector<VkPhysicalDevice>      mPhysicalDevices{};
+	std::vector<VkLayerProperties>     mLayerProperties{};
+	std::vector<VkExtensionProperties> mExtensionProperties{};
 
 	// Init/DeInit functions
 	void Initialize(
@@ -95,7 +96,7 @@ struct VulkanDeviceInfo
 		std::vector<const char *>& enabledExtensionNames);
 	void DeInitialize();
 
-	// utils functions
+	// utilities functions
 	void FindPresentQueueFamilyIndexes(uint32_t& graphicsIndex, uint32_t& presentIndex) const;
 	uint32_t FindQueueFamilyIndexByFlags(uint32_t queueFlags) const;
 	uint32_t FindMemoryHeapIndexByFlags(VkMemoryPropertyFlags propertyFlags) const;
@@ -122,55 +123,83 @@ struct VulkanSwapchainInfo
 {
 private:
 	// base handles
-	VkDevice     device = VK_NULL_HANDLE;
-	VmaAllocator allocator = VK_NULL_HANDLE;
-	VkQueue      queuePresent = VK_NULL_HANDLE;
-	VkSurfaceKHR surface = VK_NULL_HANDLE;
-	VkRenderPass renderPass = VK_NULL_HANDLE;
-
-	// current frame index
-	uint32_t currentFramebufferIndex = UINT32_MAX;
-public:
-	// swapchain
-	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-
-	// viewport size
-	uint32_t viewportWidth = UINT32_MAX;
-	uint32_t viewportHeight = UINT32_MAX;
+	VulkanDeviceInfo* mDeviceInfo = nullptr;
+	VkSurfaceKHR      mSurface = VK_NULL_HANDLE;
 
 	// framebuffer formats
-	VkSurfaceFormatKHR surfaceFormat{};
-	VkFormat           depthStencilFormat = VK_FORMAT_D24_UNORM_S8_UINT;
-	VkPresentModeKHR   presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+	VkSurfaceFormatKHR mSurfaceFormat{};
+	VkFormat           mDepthStencilFormat = VK_FORMAT_D24_UNORM_S8_UINT;
+	VkPresentModeKHR   mPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
 
 	// framebuffer data
-	VkImage                    imageDepthStencil = VK_NULL_HANDLE;
-	VkImageView                imageViewDepthStencil = VK_NULL_HANDLE;
-	VmaAllocation              imageDepthStencilAllocation = VK_NULL_HANDLE;
-	std::vector<VkImage>       imageColors{};
-	std::vector<VkImageView>   imageViewColors{};
-	std::vector<VkFramebuffer> framebuffers{};
+	VkImage                    mImageDepthStencil = VK_NULL_HANDLE;
+	VkImageView                mImageViewDepthStencil = VK_NULL_HANDLE;
+	VmaAllocation              mImageDepthStencilAllocation = VK_NULL_HANDLE;
+	std::vector<VkImage>       mImageColors{};
+	std::vector<VkImageView>   mImageViewColors{};
+	std::vector<VkFramebuffer> mFramebuffers{};
+public:
+	// swapchain
+	VkSwapchainKHR mSwapchain = VK_NULL_HANDLE;
+	VkRenderPass   mRenderPass = VK_NULL_HANDLE;
+
+	// current frame index
+	uint32_t mCurrentFramebufferIndex = UINT32_MAX;
+
+	// viewport size
+	uint32_t mViewportWidth = UINT32_MAX;
+	uint32_t mViewportHeight = UINT32_MAX;
 	
 	// Init/DeInit functions
-	void Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface, VkRenderPass renderPass);
+	void Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface);
 	void DeInitialize();
-	void ReInitialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface, VkRenderPass renderPass);
+	void ReInitialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface);
 
 	// frame processing
 	VkFramebuffer BeginFrame(VkSemaphore signalSemaphore);
 	void EndFrame(VkSemaphore waitSemaphore);
 };
 
+// VulkanPipelineInfo
+class VulkanPipelineInfo
+{
+protected:
+	// device info
+	VulkanDeviceInfo* mDeviceInfo = nullptr;
+
+	// vertex input descriptions
+	std::vector<VkVertexInputBindingDescription>   mVertexBindingDescriptions{};
+	std::vector<VkVertexInputAttributeDescription> mVertexAttributeDescriptions{};
+	std::vector<VkDescriptorSetLayoutBinding>      mDescriptorSetLayoutBindings{};
+
+	// shaders
+	VkShaderModule mShaderModuleVS = VK_NULL_HANDLE;
+	VkShaderModule mShaderModuleFS = VK_NULL_HANDLE;
+
+	// MUST fill mVertexBindingDescriptions and mVertexAttributeDescriptions
+	virtual void InitVertexInputDescriptions();
+
+	// MUST create mPipelineLayout, mDescriptorSetLayout , mDescriptorPool and mDescriptorSet
+	virtual void InitPipelineLayoutDescriptions();
+public:
+	// base handles (own)
+	VkPipeline            mPipeline = VK_NULL_HANDLE;
+	VkPipelineLayout      mPipelineLayout = VK_NULL_HANDLE;
+	VkDescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
+	VkDescriptorPool      mDescriptorPool = VK_NULL_HANDLE;
+	VkDescriptorSet       mDescriptorSet = VK_NULL_HANDLE;
+
+	// Init/DeInit functions
+	void Initialize(VulkanDeviceInfo& deviceInfo, VkRenderPass renderPass, const char* pathVS, const char* pathFS);
+	void DeInitialize();
+
+	// bind functions
+	void BindImageView(uint32_t binding, VkImageView imageView, VkSampler sampler);
+	void BindUnifromBuffer(uint32_t binding, VkBuffer buffer);
+};
+
 // InitDeviceQueueCreateInfo
 VkDeviceQueueCreateInfo InitDeviceQueueCreateInfo(uint32_t queueIndex);
-
-// CreatePipelineVertexInputState
-VkPipelineVertexInputStateCreateInfo InitPipelineVertexInputStateCreateInfo(
-	std::vector<VkVertexInputBindingDescription>& vertexBindingDescriptions,
-	std::vector<VkVertexInputAttributeDescription>& vertexAttributeDescriptions);
-
-// InitImageCreateInfo
-VkImageCreateInfo InitImageCreateInfo(VkFormat format, VkImageUsageFlags usage, uint32_t width, uint32_t height);
 
 // CreateSurface
 VkSurfaceKHR CreateSurface(VkInstance instance, HWND hWnd);
@@ -189,36 +218,6 @@ VkSampler CreateSampler(VkDevice device);
 
 // CreateShaderModuleFromFile
 VkShaderModule CreateShaderModuleFromFile(VkDevice device, const char* fileName);
-
-// CreateRenderPass
-VkRenderPass CreateRenderPass(VkDevice device);
-
-// CreateDescriptorPool
-VkDescriptorPool CreateDescriptorPool(VkDevice device);
-
-// AllocateDescriptorSet
-VkDescriptorSet AllocateDescriptorSet(VkDevice device, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout);
-
-// UpdateDescriptorSets
-void UpdateDescriptorSets(VkDevice device, VkDescriptorSet descriptorSet, VkImageView imageView, VkSampler sampler, VkBuffer mvpBuffer);
-
-// CreateDescriptorSetLayout
-VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice device);
-
-// CreatePipelineLayout
-VkPipelineLayout CreatePipelineLayout(VkDevice device, VkDescriptorSetLayout descriptorSetLayout);
-
-// CreateGraphicsPipeline
-VkPipeline CreateGraphicsPipeline(
-	VkDevice device, 
-	VkPipelineVertexInputStateCreateInfo vertexInputState, 
-	VkShaderModule vs, VkShaderModule fs, 
-	VkPipelineLayout layout, 
-	VkRenderPass renderPass, 
-	uint32_t width, uint32_t height);
-
-// CreateCommandPool
-VkCommandPool CreateCommandPool(VkDevice device, uint32_t queueIndex);
 
 // AllocateCommandBuffer
 VkCommandBuffer AllocateCommandBuffer(VkDevice device, VkCommandPool commandPool, VkCommandBufferLevel commandBufferLevel = VK_COMMAND_BUFFER_LEVEL_PRIMARY);

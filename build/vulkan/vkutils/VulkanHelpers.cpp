@@ -1,6 +1,7 @@
 #include "VulkanHelpers.hpp"
 #include <iostream>
 #include <cassert>
+#include <algorithm>
 #include <fstream>
 #include <vector>
 #include <array>
@@ -20,37 +21,14 @@ void VulkanInstanceInfo::Initialize(
 	// VkLayerProperties
 	uint32_t layerPropertiesCount = 0;
 	VK_CHECK(vkEnumerateInstanceLayerProperties(&layerPropertiesCount, nullptr));
-	layerProperties.reserve(layerPropertiesCount);
-	VK_CHECK(vkEnumerateInstanceLayerProperties(&layerPropertiesCount, layerProperties.data()));
+	mLayerProperties.reserve(layerPropertiesCount);
+	VK_CHECK(vkEnumerateInstanceLayerProperties(&layerPropertiesCount, mLayerProperties.data()));
 
 	// VkExtensionProperties
 	uint32_t extensionsPropertiesCount = 0;
 	VK_CHECK(vkEnumerateInstanceExtensionProperties(nullptr, &extensionsPropertiesCount, nullptr));
-	extensionProperties.reserve(extensionsPropertiesCount);
-	VK_CHECK(vkEnumerateInstanceExtensionProperties(nullptr, &extensionsPropertiesCount, extensionProperties.data()));
-
-#ifdef _DEBUG
-	// vkCreateDebugUtilsMessengerEXT and vkDestroyDebugUtilsMessengerEXT
-	fnCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
-	fnDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT");
-
-	// VkDebugReportCallbackCreateInfoEXT
-	VkDebugReportCallbackCreateInfoEXT callbackCreateInfo;
-	callbackCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
-	callbackCreateInfo.pNext = nullptr;
-	callbackCreateInfo.flags =
-		//VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
-		VK_DEBUG_REPORT_WARNING_BIT_EXT |
-		VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
-		VK_DEBUG_REPORT_ERROR_BIT_EXT |
-		VK_DEBUG_REPORT_DEBUG_BIT_EXT;
-	callbackCreateInfo.pfnCallback = &MyDebugReportCallback;
-	callbackCreateInfo.pUserData = nullptr;
-
-	// fnCreateDebugReportCallbackEXT
-	if (fnCreateDebugReportCallbackEXT)
-		VK_CHECK(fnCreateDebugReportCallbackEXT(instance, &callbackCreateInfo, nullptr, &debugReportCallbackEXT));
-#endif
+	mExtensionProperties.reserve(extensionsPropertiesCount);
+	VK_CHECK(vkEnumerateInstanceExtensionProperties(nullptr, &extensionsPropertiesCount, mExtensionProperties.data()));
 
 	// VkApplicationInfo
 	VkApplicationInfo applicationInfo{};
@@ -73,16 +51,42 @@ void VulkanInstanceInfo::Initialize(
 	instanceCreateInfo.ppEnabledExtensionNames = enabledExtensionNames.data();
 
 	// vkCreateInstance
-	VK_CHECK(vkCreateInstance(&instanceCreateInfo, VK_NULL_HANDLE, &instance));
-	assert(instance);
+	VK_CHECK(vkCreateInstance(&instanceCreateInfo, VK_NULL_HANDLE, &mInstance));
+	assert(mInstance);
 
 	// get physical devices count
 	uint32_t physicalDevicesCount = 0;
-	VK_CHECK(vkEnumeratePhysicalDevices(instance, &physicalDevicesCount, nullptr));
+	VK_CHECK(vkEnumeratePhysicalDevices(mInstance, &physicalDevicesCount, nullptr));
 	assert(physicalDevicesCount);
 	// get physical devices list
-	physicalDevices.resize(physicalDevicesCount);
-	VK_CHECK(vkEnumeratePhysicalDevices(instance, &physicalDevicesCount, physicalDevices.data()));
+	mPhysicalDevices.resize(physicalDevicesCount);
+	VK_CHECK(vkEnumeratePhysicalDevices(mInstance, &physicalDevicesCount, mPhysicalDevices.data()));
+
+	// get physical device GPU
+	mPhysicalDeviceGPU = FindPhysicalDevice(VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU);;
+
+#ifdef _DEBUG
+	// vkCreateDebugUtilsMessengerEXT and vkDestroyDebugUtilsMessengerEXT
+	fnCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(mInstance, "vkCreateDebugReportCallbackEXT");
+	fnDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(mInstance, "vkDestroyDebugReportCallbackEXT");
+
+	// VkDebugReportCallbackCreateInfoEXT
+	VkDebugReportCallbackCreateInfoEXT callbackCreateInfo;
+	callbackCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
+	callbackCreateInfo.pNext = nullptr;
+	callbackCreateInfo.flags =
+		//VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
+		VK_DEBUG_REPORT_WARNING_BIT_EXT |
+		VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
+		VK_DEBUG_REPORT_ERROR_BIT_EXT |
+		VK_DEBUG_REPORT_DEBUG_BIT_EXT;
+	callbackCreateInfo.pfnCallback = &MyDebugReportCallback;
+	callbackCreateInfo.pUserData = nullptr;
+
+	// fnCreateDebugReportCallbackEXT
+	if (fnCreateDebugReportCallbackEXT)
+		VK_CHECK(fnCreateDebugReportCallbackEXT(mInstance, &callbackCreateInfo, nullptr, &debugReportCallbackEXT));
+#endif
 }
 
 // DeInitialize
@@ -90,12 +94,16 @@ void VulkanInstanceInfo::DeInitialize()
 {
 #ifdef _DEBUG
 	if (fnDestroyDebugReportCallbackEXT)
-		fnDestroyDebugReportCallbackEXT(instance, debugReportCallbackEXT, nullptr);
+		fnDestroyDebugReportCallbackEXT(mInstance, debugReportCallbackEXT, nullptr);
 	debugReportCallbackEXT = VK_NULL_HANDLE;
 #endif
 
-	vkDestroyInstance(instance, VK_NULL_HANDLE);
-	instance = VK_NULL_HANDLE;
+	// clear physical device GPU
+	mPhysicalDeviceGPU = VK_NULL_HANDLE;
+
+	// destroy instance
+	vkDestroyInstance(mInstance, VK_NULL_HANDLE);
+	mInstance = VK_NULL_HANDLE;
 }
 
 // FindPhysicalDevice
@@ -103,7 +111,7 @@ VkPhysicalDevice VulkanInstanceInfo::FindPhysicalDevice(VkPhysicalDeviceType phy
 {	
 	VkPhysicalDeviceFeatures physicalDeviceFeaturesGPU;
 	VkPhysicalDeviceProperties physicalDevicePropertiesGPU;
-	for (const auto& physicalDevice : physicalDevices)
+	for (const auto& physicalDevice : mPhysicalDevices)
 	{
 		VkPhysicalDeviceFeatures physicalDeviceFeatures;
 		VkPhysicalDeviceProperties physicalDeviceProperties;
@@ -421,7 +429,7 @@ void VulkanDeviceInfo::CopyBuffers(VkDeviceSize size, VkBuffer srcBuffer, VkBuff
 	vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 }
 
-// CreateBuffer (without initilization)
+// CreateBuffer (without initialization)
 void VulkanDeviceInfo::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VmaAllocation& allocation)
 {
 	// check size
@@ -445,7 +453,7 @@ void VulkanDeviceInfo::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
 	assert(allocation);
 }
 
-// CreateBuffer (with initilization)
+// CreateBuffer (with initialization)
 void VulkanDeviceInfo::CreateBuffer(const void* data, VkDeviceSize size, VkBufferUsageFlags usage, VkBuffer& buffer, VmaAllocation& allocation)
 {
 	// check data
@@ -725,32 +733,31 @@ void VulkanDeviceInfo::WriteImage(const void* data, uint32_t width, uint32_t hei
 //////////////////////////////////////////////////////////////////////////
 
 // Initialize
-void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface, VkRenderPass renderPass)
+void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface)
 {
 	// store parameters
-	this->device = deviceInfo.device;
-	this->allocator = deviceInfo.allocator;
-	this->queuePresent = deviceInfo.queuePresent;
-	this->surface = surface;
-	this->renderPass = renderPass;
+	mDeviceInfo = &deviceInfo;
+	mSurface = surface;
+	assert(mDeviceInfo->device);
+	assert(surface);
 
 	// get parameters
-	presentMode = deviceInfo.FindPresentMode();
-	surfaceFormat = deviceInfo.FindSurfaceFormat();
+	mPresentMode = mDeviceInfo->FindPresentMode();
+	mSurfaceFormat = mDeviceInfo->FindSurfaceFormat();
 
 	// VkSurfaceCapabilitiesKHR
 	VkSurfaceCapabilitiesKHR surfaceCapabilitiesKHR{};
-	VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(deviceInfo.physicalDevice, surface, &surfaceCapabilitiesKHR));
-	viewportWidth = surfaceCapabilitiesKHR.currentExtent.width;
-	viewportHeight = surfaceCapabilitiesKHR.currentExtent.height;
+	VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(mDeviceInfo->physicalDevice, surface, &surfaceCapabilitiesKHR));
+	mViewportWidth = surfaceCapabilitiesKHR.currentExtent.width;
+	mViewportHeight = surfaceCapabilitiesKHR.currentExtent.height;
 
 	// VkSwapchainCreateInfoKHR
 	VkSwapchainCreateInfoKHR swapchainCreateInfoKHR{};
 	swapchainCreateInfoKHR.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	swapchainCreateInfoKHR.surface = surface;
 	swapchainCreateInfoKHR.minImageCount = surfaceCapabilitiesKHR.maxImageCount;
-	swapchainCreateInfoKHR.imageFormat = surfaceFormat.format;
-	swapchainCreateInfoKHR.imageColorSpace = surfaceFormat.colorSpace;
+	swapchainCreateInfoKHR.imageFormat = mSurfaceFormat.format;
+	swapchainCreateInfoKHR.imageColorSpace = mSurfaceFormat.colorSpace;
 	swapchainCreateInfoKHR.imageExtent.width = surfaceCapabilitiesKHR.currentExtent.width;
 	swapchainCreateInfoKHR.imageExtent.height = surfaceCapabilitiesKHR.currentExtent.height;
 	swapchainCreateInfoKHR.imageArrayLayers = 1;
@@ -760,31 +767,35 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 	swapchainCreateInfoKHR.pQueueFamilyIndices = VK_NULL_HANDLE;
 	swapchainCreateInfoKHR.preTransform = surfaceCapabilitiesKHR.currentTransform;
 	swapchainCreateInfoKHR.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	swapchainCreateInfoKHR.presentMode = presentMode;
+	swapchainCreateInfoKHR.presentMode = mPresentMode;
 	swapchainCreateInfoKHR.clipped = VK_TRUE;
 	swapchainCreateInfoKHR.oldSwapchain = VK_NULL_HANDLE;
 
 	// vkCreateSwapchainKHR
-	VK_CHECK(vkCreateSwapchainKHR(device, &swapchainCreateInfoKHR, nullptr, &swapchain));
-	assert(swapchain);
+	VK_CHECK(vkCreateSwapchainKHR(mDeviceInfo->device, &swapchainCreateInfoKHR, nullptr, &mSwapchain));
+	assert(mSwapchain);
+
+	//////////////////////////////////////////////////////////////////////////
 
 	// swapChainImages
 	uint32_t imageColorsCount = 0;
-	vkGetSwapchainImagesKHR(device, swapchain, &imageColorsCount, nullptr);
-	imageColors.resize(imageColorsCount);
-	vkGetSwapchainImagesKHR(device, swapchain, &imageColorsCount, imageColors.data());
+	vkGetSwapchainImagesKHR(mDeviceInfo->device, mSwapchain, &imageColorsCount, nullptr);
+	mImageColors.resize(imageColorsCount);
+	vkGetSwapchainImagesKHR(mDeviceInfo->device, mSwapchain, &imageColorsCount, mImageColors.data());
 
 	// mSwapChainImageViews
-	imageViewColors.clear();
-	imageViewColors.reserve(imageColorsCount);
-	for (const auto& imageColor : imageColors) {
+	mImageViewColors.clear();
+	mImageViewColors.reserve(imageColorsCount);
+	for (const auto& imageColor : mImageColors) {
 		// create image view
-		VkImageView imageView = CreateImageView(device, imageColor, surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT);
+		VkImageView imageView = CreateImageView(mDeviceInfo->device, imageColor, mSurfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT);
 		assert(imageView);
 
 		// add image view
-		imageViewColors.push_back(imageView);
+		mImageViewColors.push_back(imageView);
 	}
+
+	//////////////////////////////////////////////////////////////////////////
 
 	// VmaAllocationCreateInfo
 	VmaAllocationCreateInfo allocationCreateInfo{};
@@ -792,56 +803,130 @@ void VulkanSwapchainInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR 
 	allocationCreateInfo.flags = 0;
 
 	// create image
-	deviceInfo.CreateImage(viewportWidth, viewportHeight, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, imageDepthStencil, imageDepthStencilAllocation);
-	assert(imageDepthStencil);
-	assert(imageDepthStencilAllocation);
+	mDeviceInfo->CreateImage(mViewportWidth, mViewportHeight, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, mImageDepthStencil, mImageDepthStencilAllocation);
+	assert(mImageDepthStencil);
+	assert(mImageDepthStencilAllocation);
 
 	// VkImageView
-	imageViewDepthStencil = CreateImageView(device, imageDepthStencil, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
-	assert(imageViewDepthStencil);
+	mImageViewDepthStencil = CreateImageView(mDeviceInfo->device, mImageDepthStencil, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+	assert(mImageViewDepthStencil);
+
+	//////////////////////////////////////////////////////////////////////////
+
+	// VkAttachmentDescription - color
+	std::array<VkAttachmentDescription, 2> attachmentDescriptions;
+	// color attachment
+	attachmentDescriptions[0].flags = 0;
+	attachmentDescriptions[0].format = VK_FORMAT_B8G8R8A8_UNORM;
+	attachmentDescriptions[0].samples = VK_SAMPLE_COUNT_1_BIT;
+	attachmentDescriptions[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	attachmentDescriptions[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachmentDescriptions[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachmentDescriptions[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachmentDescriptions[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	attachmentDescriptions[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	// depth-stencil attachment
+	attachmentDescriptions[1].flags = 0;
+	attachmentDescriptions[1].format = VK_FORMAT_D24_UNORM_S8_UINT;
+	attachmentDescriptions[1].samples = VK_SAMPLE_COUNT_1_BIT;
+	attachmentDescriptions[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	attachmentDescriptions[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachmentDescriptions[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachmentDescriptions[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachmentDescriptions[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	attachmentDescriptions[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	// VkAttachmentReference - color
+	std::array<VkAttachmentReference, 1> colorAttachmentReferences;
+	colorAttachmentReferences[0].attachment = 0;
+	colorAttachmentReferences[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	// VkAttachmentReference - depth-stencil
+	VkAttachmentReference depthStencilAttachmentReference{};
+	depthStencilAttachmentReference.attachment = 1;
+	depthStencilAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	// VkSubpassDescription - subpassDescriptions
+	std::array<VkSubpassDescription, 1> subpassDescriptions;
+	subpassDescriptions[0].flags = 0;
+	subpassDescriptions[0].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpassDescriptions[0].inputAttachmentCount = 0;
+	subpassDescriptions[0].pInputAttachments = VK_NULL_HANDLE;
+	subpassDescriptions[0].colorAttachmentCount = (uint32_t)colorAttachmentReferences.size();
+	subpassDescriptions[0].pColorAttachments = colorAttachmentReferences.data();
+	subpassDescriptions[0].pResolveAttachments = VK_NULL_HANDLE;
+	subpassDescriptions[0].pDepthStencilAttachment = &depthStencilAttachmentReference;
+	subpassDescriptions[0].preserveAttachmentCount = 0;
+	subpassDescriptions[0].pPreserveAttachments = VK_NULL_HANDLE;
+
+	// VkRenderPassCreateInfo
+	VkRenderPassCreateInfo renderPassCreateInfo{};
+	renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassCreateInfo.attachmentCount = (uint32_t)attachmentDescriptions.size();
+	renderPassCreateInfo.pAttachments = attachmentDescriptions.data();
+	renderPassCreateInfo.subpassCount = (uint32_t)subpassDescriptions.size();
+	renderPassCreateInfo.pSubpasses = subpassDescriptions.data();
+
+	// vkCreateRenderPass
+	VK_CHECK(vkCreateRenderPass(mDeviceInfo->device, &renderPassCreateInfo, VK_NULL_HANDLE, &mRenderPass));
+
+	//////////////////////////////////////////////////////////////////////////
 
 	// create framebuffers
-	framebuffers.clear();
-	framebuffers.reserve(imageColorsCount);
-	for (const auto& imageViewColor : imageViewColors) {
+	mFramebuffers.clear();
+	mFramebuffers.reserve(imageColorsCount);
+	for (const auto& imageViewColor : mImageViewColors) {
 		// create framebuffer
-		std::vector<VkImageView> imageViews = { imageViewColor, imageViewDepthStencil };
-		VkFramebuffer framebuffer = CreateFramebuffer(device, renderPass, imageViews, viewportWidth, viewportWidth);
+		std::vector<VkImageView> imageViews = { imageViewColor, mImageViewDepthStencil };
+		VkFramebuffer framebuffer = CreateFramebuffer(mDeviceInfo->device, mRenderPass, imageViews, mViewportWidth, mViewportWidth);
 		assert(framebuffer);
 
 		// add framebuffer
-		framebuffers.push_back(framebuffer);
+		mFramebuffers.push_back(framebuffer);
 	}
 }
 
 // DeInitialize
 void VulkanSwapchainInfo::DeInitialize()
 {
-	vmaDestroyImage(allocator, imageDepthStencil, imageDepthStencilAllocation);
-	imageDepthStencil = VK_NULL_HANDLE;
-	imageDepthStencilAllocation = VK_NULL_HANDLE;
-	vkDestroyImageView(device, imageViewDepthStencil, VK_NULL_HANDLE);
-	imageViewDepthStencil = VK_NULL_HANDLE;
-	for (const auto& imageViewColor : imageViewColors)
-		vkDestroyImageView(device, imageViewColor, VK_NULL_HANDLE);
-	for (const auto& framebuffer : framebuffers)
-		vkDestroyFramebuffer(device, framebuffer, VK_NULL_HANDLE);
-	vkDestroySwapchainKHR(device, swapchain, VK_NULL_HANDLE);
-	swapchain = VK_NULL_HANDLE;
+	// destroy framebuffers
+	for (const auto& framebuffer : mFramebuffers)
+		vkDestroyFramebuffer(mDeviceInfo->device, framebuffer, VK_NULL_HANDLE);
+
+	// destroy render pass
+	vkDestroyRenderPass(mDeviceInfo->device, mRenderPass, VK_NULL_HANDLE);
+	mRenderPass = VK_NULL_HANDLE;
+
+	// destroy image depth stencil
+	vmaDestroyImage(mDeviceInfo->allocator, mImageDepthStencil, mImageDepthStencilAllocation);
+	mImageDepthStencil = VK_NULL_HANDLE;
+	mImageDepthStencilAllocation = VK_NULL_HANDLE;
+
+	// destroy image views
+	vkDestroyImageView(mDeviceInfo->device, mImageViewDepthStencil, VK_NULL_HANDLE);
+	mImageViewDepthStencil = VK_NULL_HANDLE;
+
+	// destroy image views
+	for (const auto& imageViewColor : mImageViewColors)
+		vkDestroyImageView(mDeviceInfo->device, imageViewColor, VK_NULL_HANDLE);
+
+	// destroy swapchain
+	vkDestroySwapchainKHR(mDeviceInfo->device, mSwapchain, VK_NULL_HANDLE);
+	mSwapchain = VK_NULL_HANDLE;
 }
 
 // ReInitialize
-void VulkanSwapchainInfo::ReInitialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface, VkRenderPass renderPass)
+void VulkanSwapchainInfo::ReInitialize(VulkanDeviceInfo& deviceInfo, VkSurfaceKHR surface)
 {
 	DeInitialize();
-	Initialize(deviceInfo, surface, renderPass);
+	Initialize(deviceInfo, surface);
 }
 
 // BeginFrame
 VkFramebuffer VulkanSwapchainInfo::BeginFrame(VkSemaphore signalSemaphore)
 {
-	VK_CHECK(vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, signalSemaphore, VK_NULL_HANDLE, &currentFramebufferIndex));
-	return framebuffers[currentFramebufferIndex];
+	VK_CHECK(vkAcquireNextImageKHR(mDeviceInfo->device, mSwapchain, UINT64_MAX, signalSemaphore, VK_NULL_HANDLE, &mCurrentFramebufferIndex));
+	return mFramebuffers[mCurrentFramebufferIndex];
 }
 
 // EndFrame
@@ -853,11 +938,401 @@ void VulkanSwapchainInfo::EndFrame(VkSemaphore waitSemaphore)
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = &waitSemaphore;
 	presentInfo.swapchainCount = 1;
-	presentInfo.pSwapchains = &swapchain;
-	presentInfo.pImageIndices = &currentFramebufferIndex;
+	presentInfo.pSwapchains = &mSwapchain;
+	presentInfo.pImageIndices = &mCurrentFramebufferIndex;
 	presentInfo.pResults = nullptr; // Optional
-	VK_CHECK(vkQueuePresentKHR(queuePresent, &presentInfo));
-	VK_CHECK(vkQueueWaitIdle(queuePresent));
+	VK_CHECK(vkQueuePresentKHR(mDeviceInfo->queuePresent, &presentInfo));
+	VK_CHECK(vkQueueWaitIdle(mDeviceInfo->queuePresent));
+}
+
+//////////////////////////////////////////////////////////////////////////
+// VulkanPipelineInfo
+//////////////////////////////////////////////////////////////////////////
+
+// InitVertexInputDescriptions
+void VulkanPipelineInfo::InitVertexInputDescriptions()
+{
+	// VkVertexInputBindingDescription
+	mVertexBindingDescriptions = {
+		{ 0, 10 * sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX },
+	};
+
+	// VkVertexInputAttributeDescription
+	mVertexAttributeDescriptions = {
+		{ 0, 0, VK_FORMAT_R32G32B32A32_SFLOAT,  0 }, // position
+		{ 1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 16 }, // color
+		{ 2, 0, VK_FORMAT_R32G32_SFLOAT      , 32 }, // texCoord
+	};
+}
+
+// InitPipelineLayoutHandles
+void VulkanPipelineInfo::InitPipelineLayoutDescriptions()
+{
+	// VkDescriptorSetLayoutBinding
+	mDescriptorSetLayoutBindings = {
+		{ 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, VK_NULL_HANDLE }, // texture
+		{ 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1, VK_SHADER_STAGE_VERTEX_BIT  , VK_NULL_HANDLE }, // buffer
+	};
+}
+
+// Initialize
+void VulkanPipelineInfo::Initialize(VulkanDeviceInfo& deviceInfo, VkRenderPass renderPass, const char* pathVS, const char* pathFS) 
+{
+	// check device info and paths
+	assert(renderPass);
+	assert(pathVS);
+	assert(pathFS);
+
+	// copy handles
+	mDeviceInfo = &deviceInfo;
+
+	// init handles
+	InitVertexInputDescriptions();
+	InitPipelineLayoutDescriptions();
+
+	// create shaders
+	mShaderModuleVS = CreateShaderModuleFromFile(mDeviceInfo->device, pathVS);
+	assert(mShaderModuleVS);
+	mShaderModuleFS = CreateShaderModuleFromFile(mDeviceInfo->device, pathFS);
+	assert(mShaderModuleFS);
+
+	// VkPipelineShaderStageCreateInfo - shaderStages
+	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages;
+	// vertex shader
+	shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shaderStages[0].pNext = VK_NULL_HANDLE;
+	shaderStages[0].flags = 0;
+	shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+	shaderStages[0].module = mShaderModuleVS;
+	shaderStages[0].pName = "main";
+	shaderStages[0].pSpecializationInfo = VK_NULL_HANDLE;
+	// fragment shader
+	shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shaderStages[1].pNext = VK_NULL_HANDLE;
+	shaderStages[1].flags = 0;
+	shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	shaderStages[1].module = mShaderModuleFS;
+	shaderStages[1].pName = "main";
+	shaderStages[1].pSpecializationInfo = VK_NULL_HANDLE;
+
+	//////////////////////////////////////////////////////////////////////////
+
+	// VkPipelineVertexInputStateCreateInfo - vertexInputState
+	VkPipelineVertexInputStateCreateInfo vertexInputState{};
+	vertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vertexInputState.pNext = VK_NULL_HANDLE;
+	vertexInputState.flags = 0;
+	vertexInputState.vertexBindingDescriptionCount = (uint32_t)mVertexBindingDescriptions.size();
+	vertexInputState.pVertexBindingDescriptions = mVertexBindingDescriptions.data();
+	vertexInputState.vertexAttributeDescriptionCount = (uint32_t)mVertexAttributeDescriptions.size();
+	vertexInputState.pVertexAttributeDescriptions = mVertexAttributeDescriptions.data();
+
+	//////////////////////////////////////////////////////////////////////////
+
+	// VkPipelineInputAssemblyStateCreateInfo - inputAssemblyState
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState{};
+	inputAssemblyState.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	inputAssemblyState.pNext = VK_NULL_HANDLE;
+	inputAssemblyState.flags = 0;
+	inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	inputAssemblyState.primitiveRestartEnable = VK_FALSE;
+
+	//////////////////////////////////////////////////////////////////////////
+
+	// VkPipelineTessellationStateCreateInfo - tessellationState
+	VkPipelineTessellationStateCreateInfo tessellationState{};
+	tessellationState.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
+	tessellationState.pNext = VK_NULL_HANDLE;
+	tessellationState.flags = 0;
+	tessellationState.patchControlPoints = 3;
+
+	//////////////////////////////////////////////////////////////////////////
+
+	// VkViewport - viewport
+	VkViewport viewport{};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = 0.0f;
+	viewport.height = 0.0f;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+
+	// VkRect2D - scissor
+	VkRect2D scissor{};
+	scissor.offset.x = 0;
+	scissor.offset.y = 0;
+	scissor.extent.width = 0;
+	scissor.extent.height = 0;
+
+	// VkPipelineViewportStateCreateInfo - viewportState
+	VkPipelineViewportStateCreateInfo viewportState{};
+	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewportState.pNext = VK_NULL_HANDLE;
+	viewportState.flags = 0;
+	viewportState.viewportCount = 1;
+	viewportState.pViewports = &viewport;
+	viewportState.scissorCount = 1;
+	viewportState.pScissors = &scissor;
+
+	//////////////////////////////////////////////////////////////////////////
+
+	// VkPipelineRasterizationStateCreateInfo - rasterizationState
+	VkPipelineRasterizationStateCreateInfo rasterizationState{};
+	rasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	rasterizationState.pNext = VK_NULL_HANDLE;
+	rasterizationState.flags = 0;
+	rasterizationState.depthClampEnable = VK_FALSE;
+	rasterizationState.rasterizerDiscardEnable = VK_FALSE;
+	rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
+	//rasterizationState.polygonMode = VK_POLYGON_MODE_LINE;
+	rasterizationState.cullMode = VK_CULL_MODE_NONE;
+	rasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	rasterizationState.depthBiasEnable = VK_FALSE;
+	rasterizationState.depthBiasConstantFactor = 0.0f;
+	rasterizationState.depthBiasClamp = 0.0f;
+	rasterizationState.depthBiasSlopeFactor = 0.0f;
+	rasterizationState.lineWidth = 1.0f;
+
+	//////////////////////////////////////////////////////////////////////////
+
+	// VkPipelineMultisampleStateCreateInfo - multisampleState
+	VkPipelineMultisampleStateCreateInfo multisampleState{};
+	multisampleState.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisampleState.pNext = VK_NULL_HANDLE;
+	multisampleState.flags = 0;
+	multisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+	multisampleState.sampleShadingEnable = VK_FALSE;
+	multisampleState.minSampleShading = 1.0f;
+	multisampleState.pSampleMask = VK_NULL_HANDLE;
+	multisampleState.alphaToCoverageEnable = VK_FALSE;
+	multisampleState.alphaToOneEnable = VK_FALSE;
+
+	//////////////////////////////////////////////////////////////////////////
+
+	// VkPipelineDepthStencilStateCreateInfo - depthStencilState
+	VkPipelineDepthStencilStateCreateInfo depthStencilState{};
+	depthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depthStencilState.pNext = VK_NULL_HANDLE;
+	depthStencilState.flags = 0;
+	depthStencilState.depthTestEnable = VK_TRUE;
+	depthStencilState.depthWriteEnable = VK_TRUE;
+	depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS;
+	depthStencilState.depthBoundsTestEnable = VK_TRUE;
+	depthStencilState.stencilTestEnable = VK_FALSE;
+	depthStencilState.front.failOp = VK_STENCIL_OP_KEEP;
+	depthStencilState.front.passOp = VK_STENCIL_OP_KEEP;
+	depthStencilState.front.depthFailOp = VK_STENCIL_OP_KEEP;
+	depthStencilState.front.compareOp = VK_COMPARE_OP_NEVER;
+	depthStencilState.front.compareMask = 0;
+	depthStencilState.front.writeMask = 0;
+	depthStencilState.front.reference = 0;
+	depthStencilState.back.failOp = VK_STENCIL_OP_KEEP;
+	depthStencilState.back.passOp = VK_STENCIL_OP_KEEP;
+	depthStencilState.back.depthFailOp = VK_STENCIL_OP_KEEP;
+	depthStencilState.back.compareOp = VK_COMPARE_OP_NEVER;
+	depthStencilState.back.compareMask = 0;
+	depthStencilState.back.writeMask = 0;
+	depthStencilState.back.reference = 0;
+	depthStencilState.minDepthBounds = 0.0f;
+	depthStencilState.maxDepthBounds = 1.0f;
+
+	//////////////////////////////////////////////////////////////////////////
+
+	// VkPipelineColorBlendAttachmentState - attachments
+	std::array<VkPipelineColorBlendAttachmentState, 1> attachments;
+	attachments[0].blendEnable = VK_FALSE;
+	attachments[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+	attachments[0].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+	attachments[0].colorBlendOp = VK_BLEND_OP_ADD;
+	attachments[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+	attachments[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	attachments[0].alphaBlendOp = VK_BLEND_OP_ADD;
+	attachments[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
+	// VkPipelineColorBlendStateCreateInfo - colorBlendState
+	VkPipelineColorBlendStateCreateInfo colorBlendState{};
+	colorBlendState.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	colorBlendState.pNext = VK_NULL_HANDLE;
+	colorBlendState.flags = 0;
+	colorBlendState.logicOpEnable = VK_FALSE;
+	colorBlendState.logicOp = VK_LOGIC_OP_COPY; // Optional
+	colorBlendState.attachmentCount = (uint32_t)attachments.size();
+	colorBlendState.pAttachments = attachments.data();
+	colorBlendState.blendConstants[0] = 0.0f; // Optional
+	colorBlendState.blendConstants[1] = 0.0f; // Optional
+	colorBlendState.blendConstants[2] = 0.0f; // Optional
+	colorBlendState.blendConstants[3] = 0.0f; // Optional
+
+	//////////////////////////////////////////////////////////////////////////
+
+	// VkDynamicState - dynamicStates
+	std::vector<VkDynamicState> dynamicStates = { VK_DYNAMIC_STATE_LINE_WIDTH, VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+
+	// VkPipelineDynamicStateCreateInfo - dynamicState
+	VkPipelineDynamicStateCreateInfo dynamicState{};
+	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicState.pNext = VK_NULL_HANDLE;
+	dynamicState.flags = 0;
+	dynamicState.dynamicStateCount = (uint32_t)dynamicStates.size();
+	dynamicState.pDynamicStates = dynamicStates.data();
+
+	//////////////////////////////////////////////////////////////////////////
+
+	// VkPipelineLayoutCreateInfo
+	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
+	descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	descriptorSetLayoutCreateInfo.pNext = VK_NULL_HANDLE;
+	descriptorSetLayoutCreateInfo.flags = 0;
+	descriptorSetLayoutCreateInfo.bindingCount = (uint32_t)mDescriptorSetLayoutBindings.size();
+	descriptorSetLayoutCreateInfo.pBindings = mDescriptorSetLayoutBindings.data();
+
+	// vkCreatePipelineLayout
+	VK_CHECK(vkCreateDescriptorSetLayout(mDeviceInfo->device, &descriptorSetLayoutCreateInfo, VK_NULL_HANDLE, &mDescriptorSetLayout));
+
+	//////////////////////////////////////////////////////////////////////////
+
+		// VkPipelineLayoutCreateInfo
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipelineLayoutInfo.pNext = VK_NULL_HANDLE;
+	pipelineLayoutInfo.flags = 0;
+	pipelineLayoutInfo.setLayoutCount = 1; // Optional
+	pipelineLayoutInfo.pSetLayouts = &mDescriptorSetLayout;
+	pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
+	pipelineLayoutInfo.pPushConstantRanges = VK_NULL_HANDLE; // Optional
+
+	// vkCreatePipelineLayout;
+	VK_CHECK(vkCreatePipelineLayout(mDeviceInfo->device, &pipelineLayoutInfo, VK_NULL_HANDLE, &mPipelineLayout));
+
+	//////////////////////////////////////////////////////////////////////////
+
+	// VkGraphicsPipelineCreateInfo
+	VkGraphicsPipelineCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	createInfo.pNext = VK_NULL_HANDLE;
+	createInfo.flags = 0;
+	createInfo.stageCount = (uint32_t)shaderStages.size();
+	createInfo.pStages = shaderStages.data();
+	createInfo.pVertexInputState = &vertexInputState;
+	createInfo.pInputAssemblyState = &inputAssemblyState;
+	createInfo.pTessellationState = &tessellationState;
+	createInfo.pViewportState = &viewportState;
+	createInfo.pRasterizationState = &rasterizationState;
+	createInfo.pMultisampleState = &multisampleState;
+	createInfo.pDepthStencilState = &depthStencilState;
+	createInfo.pColorBlendState = &colorBlendState;
+	createInfo.pDynamicState = &dynamicState;
+	createInfo.layout = mPipelineLayout;
+	createInfo.renderPass = renderPass;
+	createInfo.subpass = 0;
+	createInfo.basePipelineHandle = VK_NULL_HANDLE;
+	createInfo.basePipelineIndex = 0;
+
+	// vkCreateGraphicsPipelines
+	VK_CHECK(vkCreateGraphicsPipelines(mDeviceInfo->device, VK_NULL_HANDLE, 1, &createInfo, VK_NULL_HANDLE, &mPipeline));
+
+	// get descriptor type counts
+	std::map<VkDescriptorType, uint32_t> descriptorTypeCounts{};
+	for (const auto& binding : mDescriptorSetLayoutBindings)
+		descriptorTypeCounts[binding.descriptorType]++;
+
+	// fill descriptor pool sizes
+	std::vector<VkDescriptorPoolSize> descriptorPoolSizes{};
+	for (const auto& descriptorTypeCount : descriptorTypeCounts)
+		descriptorPoolSizes.push_back({ descriptorTypeCount.first, descriptorTypeCount.second });
+
+	// VkDescriptorPoolCreateInfo
+	VkDescriptorPoolCreateInfo descriptorPoolCreateInfo{};
+	descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	descriptorPoolCreateInfo.pNext = VK_NULL_HANDLE;
+	descriptorPoolCreateInfo.flags = 0;
+	descriptorPoolCreateInfo.maxSets = 1;
+	descriptorPoolCreateInfo.poolSizeCount = (uint32_t)descriptorPoolSizes.size();
+	descriptorPoolCreateInfo.pPoolSizes = descriptorPoolSizes.data();
+
+	// vkCreateDescriptorPool
+	vkCreateDescriptorPool(mDeviceInfo->device, &descriptorPoolCreateInfo, VK_NULL_HANDLE, &mDescriptorPool);
+
+	// VkDescriptorSetAllocateInfo
+	VkDescriptorSetAllocateInfo descriptorSetAllocateInfo{};
+	descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	descriptorSetAllocateInfo.pNext = VK_NULL_HANDLE;
+	descriptorSetAllocateInfo.descriptorPool = mDescriptorPool;
+	descriptorSetAllocateInfo.descriptorSetCount = 1;
+	descriptorSetAllocateInfo.pSetLayouts = &mDescriptorSetLayout;
+
+	// vkAllocateDescriptorSets
+	VK_CHECK(vkAllocateDescriptorSets(mDeviceInfo->device, &descriptorSetAllocateInfo, &mDescriptorSet));
+}
+
+// DeInitialize
+void VulkanPipelineInfo::DeInitialize() 
+{
+	vkDestroyDescriptorPool(mDeviceInfo->device, mDescriptorPool, VK_NULL_HANDLE);
+	mDescriptorPool = VK_NULL_HANDLE;
+	vkDestroyPipeline(mDeviceInfo->device, mPipeline, VK_NULL_HANDLE);
+	mPipeline = VK_NULL_HANDLE;
+	vkDestroyPipelineLayout(mDeviceInfo->device, mPipelineLayout, VK_NULL_HANDLE);
+	mPipelineLayout = VK_NULL_HANDLE;
+	vkDestroyDescriptorSetLayout(mDeviceInfo->device, mDescriptorSetLayout, VK_NULL_HANDLE);
+	mDescriptorSetLayout = VK_NULL_HANDLE;
+	vkDestroyShaderModule(mDeviceInfo->device, mShaderModuleFS, VK_NULL_HANDLE);
+	mShaderModuleFS = VK_NULL_HANDLE;
+	vkDestroyShaderModule(mDeviceInfo->device, mShaderModuleVS, VK_NULL_HANDLE);
+	mShaderModuleVS = VK_NULL_HANDLE;
+}
+
+// BindImageView
+void VulkanPipelineInfo::BindImageView(uint32_t binding, VkImageView imageView, VkSampler sampler)
+{
+	// VkDescriptorImageInfo
+	VkDescriptorImageInfo descriptorImageInfo{};
+	descriptorImageInfo.sampler = sampler;
+	descriptorImageInfo.imageView = imageView;
+	descriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	// VkWriteDescriptorSet
+	VkWriteDescriptorSet writeDescriptorSet{};
+	writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writeDescriptorSet.pNext = VK_NULL_HANDLE;
+	writeDescriptorSet.dstSet = mDescriptorSet;
+	writeDescriptorSet.dstBinding = binding;
+	writeDescriptorSet.dstArrayElement = 0;
+	writeDescriptorSet.descriptorCount = 1;
+	writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	writeDescriptorSet.pImageInfo = &descriptorImageInfo;
+	writeDescriptorSet.pBufferInfo = VK_NULL_HANDLE;
+	writeDescriptorSet.pTexelBufferView = VK_NULL_HANDLE;
+
+	// vkUpdateDescriptorSets
+	vkUpdateDescriptorSets(mDeviceInfo->device, 1, &writeDescriptorSet, 0, VK_NULL_HANDLE);
+}
+
+// BindUnifromBuffer
+void VulkanPipelineInfo::BindUnifromBuffer(uint32_t binding, VkBuffer buffer)
+{
+	// VkDescriptorImageInfo
+	VkDescriptorBufferInfo descriptorBufferInfo{};
+	descriptorBufferInfo.buffer = buffer;
+	descriptorBufferInfo.offset = 0;
+	descriptorBufferInfo.range = VK_WHOLE_SIZE;
+
+	// VkWriteDescriptorSet
+	VkWriteDescriptorSet writeDescriptorSet{};
+	// VkWriteDescriptorSet - uniform buffer
+	writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writeDescriptorSet.pNext = VK_NULL_HANDLE;
+	writeDescriptorSet.dstSet = mDescriptorSet;
+	writeDescriptorSet.dstBinding = binding;
+	writeDescriptorSet.dstArrayElement = 0;
+	writeDescriptorSet.descriptorCount = 1;
+	writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	writeDescriptorSet.pImageInfo = VK_NULL_HANDLE;
+	writeDescriptorSet.pBufferInfo = &descriptorBufferInfo;
+	writeDescriptorSet.pTexelBufferView = VK_NULL_HANDLE;
+
+	// vkUpdateDescriptorSets
+	vkUpdateDescriptorSets(mDeviceInfo->device, 1, &writeDescriptorSet, 0, VK_NULL_HANDLE);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -875,46 +1350,6 @@ VkDeviceQueueCreateInfo InitDeviceQueueCreateInfo(uint32_t queueIndex)
 	deviceQueueCreateInfo.queueCount = 1;
 	deviceQueueCreateInfo.pQueuePriorities = nullptr;
 	return deviceQueueCreateInfo;
-}
-
-// InitPipelineVertexInputState
-VkPipelineVertexInputStateCreateInfo InitPipelineVertexInputStateCreateInfo(
-	std::vector<VkVertexInputBindingDescription>& vertexBindingDescriptions,
-	std::vector<VkVertexInputAttributeDescription>& vertexAttributeDescriptions)
-{	
-	VkPipelineVertexInputStateCreateInfo vertexInputState{};
-	vertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputState.pNext = VK_NULL_HANDLE;
-	vertexInputState.flags = 0;
-	vertexInputState.vertexBindingDescriptionCount = (uint32_t)vertexBindingDescriptions.size();
-	vertexInputState.pVertexBindingDescriptions = vertexBindingDescriptions.data();
-	vertexInputState.vertexAttributeDescriptionCount = (uint32_t)vertexAttributeDescriptions.size();
-	vertexInputState.pVertexAttributeDescriptions = vertexAttributeDescriptions.data();
-	return vertexInputState;
-}
-
-// CreateImageView
-VkImageCreateInfo InitImageCreateInfo(VkFormat format, VkImageUsageFlags usage, uint32_t width, uint32_t height)
-{
-	VkImageCreateInfo imageCreateInfo{};
-	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	imageCreateInfo.pNext = VK_NULL_HANDLE;
-	imageCreateInfo.flags = 0;
-	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-	imageCreateInfo.format = format;
-	imageCreateInfo.extent.width = width;
-	imageCreateInfo.extent.height = height;
-	imageCreateInfo.extent.depth = 1;
-	imageCreateInfo.mipLevels = 1;
-	imageCreateInfo.arrayLayers = 1;
-	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-	imageCreateInfo.usage = usage;
-	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	imageCreateInfo.queueFamilyIndexCount = VK_QUEUE_FAMILY_IGNORED;
-	imageCreateInfo.pQueueFamilyIndices = VK_NULL_HANDLE;
-	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	return imageCreateInfo;
 }
 
 // CreateSurface
@@ -1055,435 +1490,6 @@ VkShaderModule CreateShaderModuleFromFile(VkDevice device, const char* fileName)
 	VkShaderModule shaderModule = VK_NULL_HANDLE;
 	VK_CHECK(vkCreateShaderModule(device, &shaderModuleCreateInfo, VK_NULL_HANDLE, &shaderModule));
 	return shaderModule;
-}
-
-// CreateRenderPass
-VkRenderPass CreateRenderPass(VkDevice device)
-{
-	// VkAttachmentDescription - color
-	std::array<VkAttachmentDescription, 2> attachmentDescriptions;
-	// color attachment
-	attachmentDescriptions[0].flags = 0;
-	attachmentDescriptions[0].format = VK_FORMAT_B8G8R8A8_UNORM;
-	attachmentDescriptions[0].samples = VK_SAMPLE_COUNT_1_BIT;
-	attachmentDescriptions[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	attachmentDescriptions[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attachmentDescriptions[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	attachmentDescriptions[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attachmentDescriptions[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	attachmentDescriptions[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	// depth-stencil attachment
-	attachmentDescriptions[1].flags = 0;
-	attachmentDescriptions[1].format = VK_FORMAT_D24_UNORM_S8_UINT;
-	attachmentDescriptions[1].samples = VK_SAMPLE_COUNT_1_BIT;
-	attachmentDescriptions[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	attachmentDescriptions[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	attachmentDescriptions[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	attachmentDescriptions[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attachmentDescriptions[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	attachmentDescriptions[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-	//////////////////////////////////////////////////////////////////////////
-
-	// VkAttachmentReference - color
-	std::array<VkAttachmentReference, 1> colorAttachmentReferences;
-	colorAttachmentReferences[0].attachment = 0;
-	colorAttachmentReferences[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	// VkAttachmentReference - depth-stencil
-	VkAttachmentReference depthStencilAttachmentReference{};
-	depthStencilAttachmentReference.attachment = 1;
-	depthStencilAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-	// VkSubpassDescription - subpassDescriptions
-	std::array<VkSubpassDescription, 1> subpassDescriptions;
-	subpassDescriptions[0].flags = 0;
-	subpassDescriptions[0].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpassDescriptions[0].inputAttachmentCount = 0;
-	subpassDescriptions[0].pInputAttachments = VK_NULL_HANDLE;
-	subpassDescriptions[0].colorAttachmentCount = (uint32_t)colorAttachmentReferences.size();
-	subpassDescriptions[0].pColorAttachments = colorAttachmentReferences.data();
-	subpassDescriptions[0].pResolveAttachments = VK_NULL_HANDLE;
-	subpassDescriptions[0].pDepthStencilAttachment = &depthStencilAttachmentReference;
-	subpassDescriptions[0].preserveAttachmentCount = 0;
-	subpassDescriptions[0].pPreserveAttachments = VK_NULL_HANDLE;
-
-	//////////////////////////////////////////////////////////////////////////
-
-	// VkRenderPassCreateInfo
-	VkRenderPassCreateInfo renderPassCreateInfo{};
-	renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassCreateInfo.attachmentCount = (uint32_t)attachmentDescriptions.size();
-	renderPassCreateInfo.pAttachments = attachmentDescriptions.data();
-	renderPassCreateInfo.subpassCount = (uint32_t)subpassDescriptions.size();
-	renderPassCreateInfo.pSubpasses = subpassDescriptions.data();
-
-	// vkCreateRenderPass
-	VkRenderPass renderPass = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateRenderPass(device, &renderPassCreateInfo, VK_NULL_HANDLE, &renderPass));
-	return renderPass;
-}
-
-// CreateDescriptorPool
-VkDescriptorPool CreateDescriptorPool(VkDevice device)
-{
-	// VkDescriptorPoolSize
-	std::array<VkDescriptorPoolSize, 2> descriptorPoolSizes;
-	// VkDescriptorPoolSize - texture 
-	descriptorPoolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	descriptorPoolSizes[0].descriptorCount = 1;
-	// VkDescriptorPoolSize - uniform (MVP)
-	descriptorPoolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	descriptorPoolSizes[1].descriptorCount = 1;
-
-	// VkDescriptorPoolCreateInfo
-	VkDescriptorPoolCreateInfo descriptorPoolCreateInfo{};
-	descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	descriptorPoolCreateInfo.pNext = VK_NULL_HANDLE;
-	descriptorPoolCreateInfo.flags = 0;
-	descriptorPoolCreateInfo.maxSets = 1;
-	descriptorPoolCreateInfo.poolSizeCount = (uint32_t)descriptorPoolSizes.size();
-	descriptorPoolCreateInfo.pPoolSizes = descriptorPoolSizes.data();
-
-	// vkCreateDescriptorPool
-	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateDescriptorPool(device, &descriptorPoolCreateInfo, VK_NULL_HANDLE, &descriptorPool));
-	return descriptorPool;
-}
-
-// AllocateDescriptorSets
-VkDescriptorSet AllocateDescriptorSet(VkDevice device, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout)
-{
-	// VkDescriptorSetAllocateInfo
-	VkDescriptorSetAllocateInfo descriptorSetAllocateInfo{};
-	descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	descriptorSetAllocateInfo.pNext = VK_NULL_HANDLE;
-	descriptorSetAllocateInfo.descriptorPool = descriptorPool;
-	descriptorSetAllocateInfo.descriptorSetCount = 1;
-	descriptorSetAllocateInfo.pSetLayouts = &descriptorSetLayout;
-
-	// vkAllocateDescriptorSets
-	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-	VK_CHECK(vkAllocateDescriptorSets(device, &descriptorSetAllocateInfo, &descriptorSet));
-	return descriptorSet;
-}
-
-// UpdateDescriptorSets
-void UpdateDescriptorSets(VkDevice device, VkDescriptorSet descriptorSet, VkImageView imageView, VkSampler sampler, VkBuffer mvpBuffer)
-{
-	// VkDescriptorImageInfo
-	VkDescriptorImageInfo descriptorImageInfo{};
-	descriptorImageInfo.sampler = sampler;
-	descriptorImageInfo.imageView = imageView;
-	descriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-	// VkDescriptorImageInfo
-	VkDescriptorBufferInfo descriptorBufferInfo{};
-	descriptorBufferInfo.buffer = mvpBuffer;
-	descriptorBufferInfo.offset = 0;
-	descriptorBufferInfo.range = VK_WHOLE_SIZE;
-	
-	// VkWriteDescriptorSet
-	std::array<VkWriteDescriptorSet, 2> writeDescriptorSets{};
-	// VkWriteDescriptorSet - texture
-	writeDescriptorSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	writeDescriptorSets[0].pNext = VK_NULL_HANDLE;
-	writeDescriptorSets[0].dstSet = descriptorSet;
-	writeDescriptorSets[0].dstBinding = 0;
-	writeDescriptorSets[0].dstArrayElement = 0;
-	writeDescriptorSets[0].descriptorCount = 1;
-	writeDescriptorSets[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	writeDescriptorSets[0].pImageInfo = &descriptorImageInfo;
-	writeDescriptorSets[0].pBufferInfo = VK_NULL_HANDLE;
-	writeDescriptorSets[0].pTexelBufferView = VK_NULL_HANDLE;
-	// VkWriteDescriptorSet - uniform (MVP)
-	writeDescriptorSets[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	writeDescriptorSets[1].pNext = VK_NULL_HANDLE;
-	writeDescriptorSets[1].dstSet = descriptorSet;
-	writeDescriptorSets[1].dstBinding = 1;
-	writeDescriptorSets[1].dstArrayElement = 0;
-	writeDescriptorSets[1].descriptorCount = 1;
-	writeDescriptorSets[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	writeDescriptorSets[1].pImageInfo = VK_NULL_HANDLE;
-	writeDescriptorSets[1].pBufferInfo = &descriptorBufferInfo;
-	writeDescriptorSets[1].pTexelBufferView = VK_NULL_HANDLE;
-
-	// vkUpdateDescriptorSets
-	vkUpdateDescriptorSets(device, (uint32_t)writeDescriptorSets.size(), writeDescriptorSets.data(), 0, VK_NULL_HANDLE);
-}
-
-// CreatePipelineLayout
-VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice device)
-{
-	// VkPipelineLayoutCreateInfo
-	std::array<VkDescriptorSetLayoutBinding, 2> descriptorSetLayoutBindings;
-	// descriptorSetLayoutBindings - texture
-	descriptorSetLayoutBindings[0].binding = 0;
-	descriptorSetLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	descriptorSetLayoutBindings[0].descriptorCount = 1;
-	descriptorSetLayoutBindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	descriptorSetLayoutBindings[0].pImmutableSamplers = VK_NULL_HANDLE;
-	// descriptorSetLayoutBindings - uniform (MVP)
-	descriptorSetLayoutBindings[1].binding = 1;
-	descriptorSetLayoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	descriptorSetLayoutBindings[1].descriptorCount = 1;
-	descriptorSetLayoutBindings[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	descriptorSetLayoutBindings[1].pImmutableSamplers = VK_NULL_HANDLE;
-
-	// VkPipelineLayoutCreateInfo
-	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
-	descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	descriptorSetLayoutCreateInfo.pNext = VK_NULL_HANDLE;
-	descriptorSetLayoutCreateInfo.flags = 0;
-	descriptorSetLayoutCreateInfo.bindingCount = (uint32_t)descriptorSetLayoutBindings.size();
-	descriptorSetLayoutCreateInfo.pBindings = descriptorSetLayoutBindings.data();
-
-	// vkCreatePipelineLayout
-	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCreateInfo, VK_NULL_HANDLE, &descriptorSetLayout));
-	return descriptorSetLayout;
-}
-
-// CreatePipelineLayout
-VkPipelineLayout CreatePipelineLayout(VkDevice device, VkDescriptorSetLayout descriptorSetLayout)
-{
-	// VkPipelineLayoutCreateInfo
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.pNext = VK_NULL_HANDLE;
-	pipelineLayoutInfo.flags = 0;
-	pipelineLayoutInfo.setLayoutCount = 1; // Optional
-	pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
-	pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
-	pipelineLayoutInfo.pPushConstantRanges = VK_NULL_HANDLE; // Optional
-
-	// vkCreatePipelineLayout;
-	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-	VK_CHECK(vkCreatePipelineLayout(device, &pipelineLayoutInfo, VK_NULL_HANDLE, &pipelineLayout));
-	return pipelineLayout;
-}
-
-// CreateGraphicsPipeline
-VkPipeline CreateGraphicsPipeline(
-	VkDevice device,
-	VkPipelineVertexInputStateCreateInfo vertexInputState,
-	VkShaderModule vs, VkShaderModule fs,
-	VkPipelineLayout layout,
-	VkRenderPass renderPass,
-	uint32_t width, uint32_t height)
-{
-	// VkPipelineShaderStageCreateInfo - shaderStages
-	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages;
-	// vertex shader
-	shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	shaderStages[0].pNext = VK_NULL_HANDLE;
-	shaderStages[0].flags = 0;
-	shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-	shaderStages[0].module = vs;
-	shaderStages[0].pName = "main";
-	shaderStages[0].pSpecializationInfo = VK_NULL_HANDLE;
-	// fragment shader
-	shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	shaderStages[1].pNext = VK_NULL_HANDLE;
-	shaderStages[1].flags = 0;
-	shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	shaderStages[1].module = fs;
-	shaderStages[1].pName = "main";
-	shaderStages[1].pSpecializationInfo = VK_NULL_HANDLE;
-
-	//////////////////////////////////////////////////////////////////////////
-
-	// VkPipelineInputAssemblyStateCreateInfo - inputAssemblyState
-	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState{};
-	inputAssemblyState.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	inputAssemblyState.pNext = VK_NULL_HANDLE;
-	inputAssemblyState.flags = 0;
-	inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-	inputAssemblyState.primitiveRestartEnable = VK_FALSE;
-
-	//////////////////////////////////////////////////////////////////////////
-
-	// VkPipelineTessellationStateCreateInfo - tessellationState
-	VkPipelineTessellationStateCreateInfo tessellationState{};
-	tessellationState.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
-	tessellationState.pNext = VK_NULL_HANDLE;
-	tessellationState.flags = 0;
-	tessellationState.patchControlPoints = 3;
-
-	//////////////////////////////////////////////////////////////////////////
-
-	// VkViewport - viewport
-	VkViewport viewport{};
-	viewport.x = 0.0f;
-	viewport.y = (float)height;
-	viewport.width = (float)width;
-	viewport.height = -(float)height;
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
-
-	// VkRect2D - scissor
-	VkRect2D scissor{};
-	scissor.offset.x = 0;
-	scissor.offset.y = 0;
-	scissor.extent.width = width;
-	scissor.extent.height = height;
-
-	// VkPipelineViewportStateCreateInfo - viewportState
-	VkPipelineViewportStateCreateInfo viewportState{};
-	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-	viewportState.pNext = VK_NULL_HANDLE;
-	viewportState.flags = 0;
-	viewportState.viewportCount = 1;
-	viewportState.pViewports = &viewport;
-	viewportState.scissorCount = 1;
-	viewportState.pScissors = &scissor;
-
-	//////////////////////////////////////////////////////////////////////////
-
-	// VkPipelineRasterizationStateCreateInfo - rasterizationState
-	VkPipelineRasterizationStateCreateInfo rasterizationState{};
-	rasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-	rasterizationState.pNext = VK_NULL_HANDLE;
-	rasterizationState.flags = 0;
-	rasterizationState.depthClampEnable = VK_FALSE;
-	rasterizationState.rasterizerDiscardEnable = VK_FALSE;
-	rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
-	//rasterizationState.polygonMode = VK_POLYGON_MODE_LINE;
-	rasterizationState.cullMode = VK_CULL_MODE_NONE;
-	rasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
-	rasterizationState.depthBiasEnable = VK_FALSE;
-	rasterizationState.depthBiasConstantFactor = 0.0f;
-	rasterizationState.depthBiasClamp = 0.0f;
-	rasterizationState.depthBiasSlopeFactor = 0.0f;
-	rasterizationState.lineWidth = 1.0f;
-
-	//////////////////////////////////////////////////////////////////////////
-
-	// VkPipelineMultisampleStateCreateInfo - multisampleState
-	VkPipelineMultisampleStateCreateInfo multisampleState{};
-	multisampleState.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-	multisampleState.pNext = VK_NULL_HANDLE;
-	multisampleState.flags = 0;
-	multisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-	multisampleState.sampleShadingEnable = VK_FALSE;
-	multisampleState.minSampleShading = 1.0f;
-	multisampleState.pSampleMask = VK_NULL_HANDLE;
-	multisampleState.alphaToCoverageEnable = VK_FALSE;
-	multisampleState.alphaToOneEnable = VK_FALSE;
-
-	//////////////////////////////////////////////////////////////////////////
-
-	// VkPipelineDepthStencilStateCreateInfo - depthStencilState
-	VkPipelineDepthStencilStateCreateInfo depthStencilState{};
-	depthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	depthStencilState.pNext = VK_NULL_HANDLE;
-	depthStencilState.flags = 0;
-	depthStencilState.depthTestEnable = VK_TRUE;
-	depthStencilState.depthWriteEnable = VK_TRUE;
-	depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS;
-	depthStencilState.depthBoundsTestEnable = VK_TRUE;
-	depthStencilState.stencilTestEnable = VK_FALSE;
-	depthStencilState.front.failOp = VK_STENCIL_OP_KEEP;
-	depthStencilState.front.passOp = VK_STENCIL_OP_KEEP;
-	depthStencilState.front.depthFailOp = VK_STENCIL_OP_KEEP;
-	depthStencilState.front.compareOp = VK_COMPARE_OP_NEVER;
-	depthStencilState.front.compareMask = 0;
-	depthStencilState.front.writeMask = 0;
-	depthStencilState.front.reference = 0;
-	depthStencilState.back.failOp = VK_STENCIL_OP_KEEP;
-	depthStencilState.back.passOp = VK_STENCIL_OP_KEEP;
-	depthStencilState.back.depthFailOp = VK_STENCIL_OP_KEEP;
-	depthStencilState.back.compareOp = VK_COMPARE_OP_NEVER;
-	depthStencilState.back.compareMask = 0;
-	depthStencilState.back.writeMask = 0;
-	depthStencilState.back.reference = 0;
-	depthStencilState.minDepthBounds = 0.0f;
-	depthStencilState.maxDepthBounds = 1.0f;
-
-	//////////////////////////////////////////////////////////////////////////
-
-	// VkPipelineColorBlendAttachmentState - attachments
-	std::array<VkPipelineColorBlendAttachmentState, 1> attachments;
-	attachments[0].blendEnable = VK_FALSE;
-	attachments[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-	attachments[0].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-	attachments[0].colorBlendOp = VK_BLEND_OP_ADD;
-	attachments[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-	attachments[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-	attachments[0].alphaBlendOp = VK_BLEND_OP_ADD;
-	attachments[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-
-	// VkPipelineColorBlendStateCreateInfo - colorBlendState
-	VkPipelineColorBlendStateCreateInfo colorBlendState{};
-	colorBlendState.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-	colorBlendState.pNext = VK_NULL_HANDLE;
-	colorBlendState.flags = 0;
-	colorBlendState.logicOpEnable = VK_FALSE;
-	colorBlendState.logicOp = VK_LOGIC_OP_COPY; // Optional
-	colorBlendState.attachmentCount = (uint32_t)attachments.size();
-	colorBlendState.pAttachments = attachments.data();
-	colorBlendState.blendConstants[0] = 0.0f; // Optional
-	colorBlendState.blendConstants[1] = 0.0f; // Optional
-	colorBlendState.blendConstants[2] = 0.0f; // Optional
-	colorBlendState.blendConstants[3] = 0.0f; // Optional
-
-	//////////////////////////////////////////////////////////////////////////
-
-	// VkDynamicState - dynamicStates
-	std::vector<VkDynamicState> dynamicStates = { VK_DYNAMIC_STATE_LINE_WIDTH, VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
-
-	// VkPipelineDynamicStateCreateInfo - dynamicState
-	VkPipelineDynamicStateCreateInfo dynamicState{};
-	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-	dynamicState.pNext = VK_NULL_HANDLE;
-	dynamicState.flags = 0;
-	dynamicState.dynamicStateCount = (uint32_t)dynamicStates.size();
-	dynamicState.pDynamicStates = dynamicStates.data();
-
-	//////////////////////////////////////////////////////////////////////////
-
-	// VkGraphicsPipelineCreateInfo
-	VkGraphicsPipelineCreateInfo createInfo{};
-	createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	createInfo.pNext = VK_NULL_HANDLE;
-	createInfo.flags = 0;
-	createInfo.stageCount = (uint32_t)shaderStages.size();
-	createInfo.pStages = shaderStages.data();
-	createInfo.pVertexInputState = &vertexInputState;
-	createInfo.pInputAssemblyState = &inputAssemblyState;
-	createInfo.pTessellationState = &tessellationState;
-	createInfo.pViewportState = &viewportState;
-	createInfo.pRasterizationState = &rasterizationState;
-	createInfo.pMultisampleState = &multisampleState;
-	createInfo.pDepthStencilState = &depthStencilState;
-	createInfo.pColorBlendState = &colorBlendState;
-	createInfo.pDynamicState = &dynamicState;
-	createInfo.layout = layout;
-	createInfo.renderPass = renderPass;
-	createInfo.subpass = 0;
-	createInfo.basePipelineHandle = VK_NULL_HANDLE;
-	createInfo.basePipelineIndex = 0;
-
-	// vkCreateGraphicsPipelines
-	VkPipeline pipeline = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &createInfo, VK_NULL_HANDLE, &pipeline));
-	return pipeline;
-}
-
-// CreateCommandPool
-VkCommandPool CreateCommandPool(VkDevice device, uint32_t queueIndex)
-{
-	// VkCommandPoolCreateInfo
-	VkCommandPoolCreateInfo commandPoolCreateInfo{};
-	commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	commandPoolCreateInfo.pNext = VK_NULL_HANDLE;
-	commandPoolCreateInfo.flags = 0;
-	commandPoolCreateInfo.queueFamilyIndex = queueIndex;
-
-	// vkCreateCommandPool
-	VkCommandPool commandPool = VK_NULL_HANDLE;
-	VK_CHECK(vkCreateCommandPool(device, &commandPoolCreateInfo, VK_NULL_HANDLE, &commandPool));
-	return commandPool;
 }
 
 // AllocateCommandBuffer

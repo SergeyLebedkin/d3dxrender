@@ -206,6 +206,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AppMain.cpp" />
+    <ClCompile Include="AppUtils.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="utils\stb_image.cc" />
     <ClCompile Include="utils\tiny_obj_loader.cc" />
@@ -215,6 +216,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AppMain.hpp" />
+    <ClInclude Include="AppUtils.hpp" />
     <ClInclude Include="utils\stb_image.h" />
     <ClInclude Include="utils\tiny_obj_loader.h" />
     <ClInclude Include="vkutils\vkmesh.hpp" />

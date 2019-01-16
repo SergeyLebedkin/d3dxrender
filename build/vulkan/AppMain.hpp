@@ -1,17 +1,17 @@
 #pragma once
 
 #include <DirectXMath.h>
-#include "vkutils/VulkanHelpers.hpp"
+#include "AppUtils.hpp"
 
 // created SL-160225
 class CAppMain
 {
 private:
 	// vulkan handle holders
-	VulkanInstanceInfo  mInstanceInfo;
-	VulkanDeviceInfo    mDeviceInfo;
-	VulkanSwapchainInfo mSwapchainInfo;
-	VulkanPipelineInfo  mPipelineInfo;
+	VulkanHelpers::VulkanInstanceInfo  mInstanceInfo;
+	VulkanHelpers::VulkanDeviceInfo    mDeviceInfo;
+	VulkanHelpers::VulkanSwapchainInfo mSwapchainInfo;
+	VulkanHelpers::VulkanPipelineInfo  mPipelineInfo;
 
 	// vulkan handlers
 	VkSurfaceKHR          mSurface = VK_NULL_HANDLE;
@@ -44,7 +44,6 @@ private:
 	DirectX::XMMATRIX mWVP;
 private:
 	bool loadModelObjFromFile(const char * fileName, const char * baseDir);
-	bool loadTextureFromFile(const char * fileName);
 public:
 	CAppMain() {};
 	virtual ~CAppMain() {};

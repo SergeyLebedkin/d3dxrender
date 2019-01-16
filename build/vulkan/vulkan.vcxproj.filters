@@ -18,6 +18,7 @@
     <ClCompile Include="vkutils\vkmesh.cpp">
       <Filter>vkutils</Filter>
     </ClCompile>
+    <ClCompile Include="AppUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AppMain.hpp" />
@@ -39,6 +40,7 @@
     <ClInclude Include="vkutils\vkmesh.hpp">
       <Filter>vkutils</Filter>
     </ClInclude>
+    <ClInclude Include="AppUtils.hpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="shaders">

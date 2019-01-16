@@ -1,5 +1,4 @@
 #include "AppMain.hpp"
-#include "utils/stb_image.h"
 #include "utils/tiny_obj_loader.h"
 #include <iostream>
 #include <fstream>
@@ -156,29 +155,6 @@ bool CAppMain::loadModelObjFromFile(const char * fileName, const char * baseDir)
 	return true;
 }
 
-// loadTextureFromFile
-bool CAppMain::loadTextureFromFile(const char * fileName)
-{
-	// load image data
-	int x, y, n;
-	unsigned char *data = stbi_load(fileName, &x, &y, &n, 4);
-	assert(data);
-
-	// create image
-	mDeviceInfo.CreateImage(data, x, y, VK_FORMAT_R8G8B8A8_SNORM, VK_IMAGE_USAGE_SAMPLED_BIT, mModelImage, mModelImageMemory);
-	assert(mModelImage);
-	assert(mModelImageMemory);
-
-	// create image view
-	mModelImageView = mDeviceInfo.CreateImageView(mModelImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
-	assert(mModelImageView);
-
-	// free image data
-	stbi_image_free(data);
-
-	return true;
-}
-
 // Created SL-160225
 void CAppMain::Init(const HWND hWnd)
 {
@@ -206,7 +182,7 @@ void CAppMain::Init(const HWND hWnd)
 	mInstanceInfo.Initialize("Vulkan app", VK_MAKE_VERSION(1, 0, 1), "Vulkan Engine", VK_MAKE_VERSION(1, 0, 1), enabledInstanceLayerNames, enabledInstanceExtensionNames, VK_API_VERSION_1_1);
 	assert(mInstanceInfo.mInstance);
 
-	mSurface = CreateSurface(mInstanceInfo.mInstance, hWnd);
+	mSurface = VulkanHelpers::CreateSurface(mInstanceInfo.mInstance, hWnd);
 	assert(mSurface);
 
 	mDeviceInfo.Initialize(mInstanceInfo.mPhysicalDeviceGPU, mSurface, physicalDeviceFeatures, enabledDeviceExtensionNames);
@@ -232,14 +208,17 @@ void CAppMain::Init(const HWND hWnd)
 	mSampler = mDeviceInfo.CreateSampler(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT);
 	assert(mSampler);
 
-	loadTextureFromFile("./textures/texture.png");
+	// LoadImageFromFile
+	AppUtils::LoadImageFromFile(mDeviceInfo, "./textures/texture.png", mModelImage, mModelImageMemory, mModelImageView);
+	//AppUtils::LoadMeshesFromObjFile(mDeviceInfo, "./textures/texture.png", mModelImage, mModelImageMemory, mModelImageView);
 
-	//loadModelObjFromFile("./models/tea.obj", "./models");
+	// loadModelObjFromFile("./models/tea.obj", "./models");
 	mDeviceInfo.CreateBuffer(vertices, sizeof(vertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mModelVertexBufferPos, mModelVertexMemoryPos);
 	mDeviceInfo.CreateBuffer(indexes, sizeof(indexes), VK_BUFFER_USAGE_INDEX_BUFFER_BIT, mModelIndexBuffer, mModelIndexMemory);
 	mDeviceInfo.CreateBuffer(&mWVP, sizeof(mWVP), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, mModelUniformMVP, mModelUniformMemoryMVP);
 
 	// bind data
+	// mPipelineInfo.BindImageView(0, mModelImageView, mSampler);
 	mPipelineInfo.BindImageView(0, mModelImageView, mSampler);
 	mPipelineInfo.BindUnifromBuffer(1, mModelUniformMVP);
 }
@@ -285,7 +264,7 @@ void CAppMain::Render()
 		mModelVertexBufferPos, mModelVertexBufferNorm, mModelVertexBufferTexCoord, mModelIndexBuffer, mVertexCount);
 
 	// submit render command buffer
-	QueueSubmit(mDeviceInfo.mQueueGraphics, mCommandBuffer, mImageAvailableSemaphore, mRenderFinishedSemaphore);
+	VulkanHelpers::QueueSubmit(mDeviceInfo.mQueueGraphics, mCommandBuffer, mImageAvailableSemaphore, mRenderFinishedSemaphore);
 
 	// end frame
 	mSwapchainInfo.EndFrame(mRenderFinishedSemaphore);
